@@ -132,5 +132,3 @@ map_outside_sa_ <- leaflet(sf_data_outside_sa) %>%
   addProviderTiles(providers$Esri) %>%
   addCircleMarkers(radius = 2, color = "red", label = ~species)
 
-
-
