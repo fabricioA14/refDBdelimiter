@@ -1,8 +1,8 @@
-<h1 align="center">refDBdelimiter: An R Package for Refining Molecular Reference Databases with Occurrence Data for Metabarcoding Analysis</h1>
-
 <p align="center">
-  <img src="https://github.com/fabricioA14/refDBdelimiter/assets/73892283/3a436338-be1e-4c3d-b893-cb6aacd63eb6" alt="refdb" width="300"/>
+  <img src="https://github.com/fabricioA14/refDBdelimiter/assets/73892283/3a436338-be1e-4c3d-b893-cb6aacd63eb6" alt="refdb" width="230"/>
 </p>
+
+<h1 align="center">refDBdelimiter: An R Package for Refining Molecular Reference Databases with Occurrence Data for Metabarcoding Analysis</h1>
 
 ## Table of Contents
 
