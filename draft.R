@@ -25,10 +25,10 @@ taxa <- "Apteronotidae"
 taxon_key <- name_suggest(q = taxa, rank = "family") ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
-continents <- c("south_america")  # Vetor de continentes
-fields <- c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord","occurrenceID")
-limit <- 400  # Número de registros por solicitação
-observation_type <- "PRESERVED_SPECIMEN"  # Filtro para observações de museu
+continents <- c("south_america")  # Vector of continents
+fields <- c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord", "occurrenceID")
+limit <- 400  # Number of records per request
+observation_type <- "PRESERVED_SPECIMEN"  # Filter for museum observations
 all_data <- list()
 
 # Function to fetch data from GBIF for a specific continent and year
@@ -72,13 +72,13 @@ for (continent in continents) {
 # Combine all data into a single data frame
 data <- do.call(rbind, all_data)
 
-# Excluir linhas com coordenadas ausentes e onde a coluna "species" tem valores NA
+# Exclude rows with missing coordinates and where the "species" column has NA values
 data <- data[!is.na(data$decimalLongitude) & !is.na(data$decimalLatitude) & !is.na(data$species), ]
 
-# Converter dados para sf
+# Convert data to sf
 sf_data <- st_as_sf(data, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
 
-# Excluir linhas com coordenadas ausentes e onde a coluna "species" tem valores NA
+# Exclude rows with missing coordinates and where the "species" column has NA values
 data <- data[!is.na(data$decimalLongitude) & !is.na(data$decimalLatitude) & !is.na(data$species), ]
 
 # Define a color palette for the species
@@ -93,7 +93,7 @@ scrollable_legend_css <- "
 }
 "
 
-# Mapa leaflet
+# Leaflet map
 map_within_sa <- leaflet(data) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
@@ -250,12 +250,12 @@ server <- function(input, output, session) {
     species <- feature$species
     print(paste("New feature drawn for species:", species))
     
-    # Adicionar a espécie e o polígono desenhado à lista
+    # Add the species and the drawn polygon to the list
     currentFeatures <- drawnFeatures()
     updatedFeatures <- append(currentFeatures, list(feature))
     drawnFeatures(updatedFeatures)
     
-    # Atualizar o objeto global com as espécies desenhadas
+    # Update the global object with the drawn species
     speciesList <- lapply(updatedFeatures, function(f) f$species)
     assign("searchedValuesGlobal", speciesList, envir = .GlobalEnv)
     assign("drawnFeaturesGlobal", updatedFeatures, envir = .GlobalEnv)
@@ -273,19 +273,19 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 
 
-# Função para converter o primeiro caractere de uma string para maiúsculo
+# Function to capitalize the first character of a string
 capitalize <- function(x) {
   sapply(x, function(y) {
     paste(toupper(substring(y, 1, 1)), substring(y, 2), sep = "")
   })
 }
 
-# Função para garantir nomes de linha únicos
+# Function to ensure unique row names
 make_unique_names <- function(names) {
   make.unique(names, sep = " ")
 }
 
-# Função para extrair os dados e criar um data frame
+# Function to extract the data and create a data frame
 extract_data <- function(data) {
   ids <- unlist(lapply(data, function(x) rep(x$layer$properties$`_leaflet_id`, length(x$species))))
   feature_types <- unlist(lapply(data, function(x) rep(x$layer$properties$feature_type, length(x$species))))
@@ -304,56 +304,56 @@ extract_data <- function(data) {
   df <- st_sf(df, geometry = st_sfc(geometries))
   rownames(df) <- make_unique_names(capitalize(species))
   
-  # Definir o CRS para o objeto sf
+  # Set the CRS for the sf object
   st_crs(df) <- 4326  # CRS WGS 84
   
   return(df)
 }
 
-# Convertendo para um objeto sf
+# Convert to an sf object
 selected_sf <- extract_data(drawnFeaturesGlobal)
 
-# Função para remover números e espaço em branco no final do nome
+# Function to remove trailing numbers and whitespace from names
 remove_trailing_numbers <- function(name) {
   gsub(" [0-9]+$", "", name)
 }
 
-# Inicializar sf_data_final com o conjunto de dados original
+# Initialize sf_data_final with the original dataset
 sf_data_final <- sf_data
 
-# Loop sobre cada espécie na lista
+# Loop over each species in the list
 for (i in seq_along(row.names(selected_sf))) {
-  # Verificar qual espécie está sendo visualizada
+  # Check which species is being viewed
   selected_species <- row.names(selected_sf)[i]
   
-  # Remover números e espaço em branco do final do nome
+  # Remove trailing numbers and whitespace from the name
   cleaned_species <- remove_trailing_numbers(selected_species)
   
-  # Filtrar os dados para a espécie selecionada
+  # Filter the data for the selected species
   sf_data_selected_species <- sf_data %>% filter(species == cleaned_species)
   
-  # Inicializar uma variável para acumular as interseções
+  # Initialize a variable to accumulate intersections
   all_intersections <- rep(FALSE, nrow(sf_data_selected_species))
   
-  # Loop sobre todos os polígonos que têm o mesmo nome de espécie limpa
+  # Loop over all polygons with the same cleaned species name
   for (j in seq_along(row.names(selected_sf))) {
     if (remove_trailing_numbers(row.names(selected_sf)[j]) == cleaned_species) {
-      # Verificar interseções dentro do conjunto de dados filtrado
+      # Check intersections within the filtered dataset
       intersections <- st_intersects(sf_data_selected_species, selected_sf[j,], sparse = FALSE)
       
-      # Acumular as interseções
+      # Accumulate the intersections
       all_intersections <- all_intersections | apply(intersections, 1, any)
     }
   }
   
-  # Verificar se há interseções e aplicar filtro
+  # Check for intersections and apply filter
   if (any(all_intersections)) {
     sf_data_cleaned <- sf_data_selected_species[!all_intersections, ]
   } else {
     sf_data_cleaned <- sf_data_selected_species
   }
   
-  # Combinar os dados limpos da espécie selecionada com os dados das outras espécies
+  # Combine the cleaned data of the selected species with the data of other species
   sf_data_final <- bind_rows(sf_data_final %>% filter(species != cleaned_species), sf_data_cleaned)
 }
 
@@ -373,7 +373,7 @@ excluded_sf_data <- st_as_sf(unique_rows, wkt = "wkt", crs = st_crs(sf_data)) %>
 ##########################################################################################
 
 
-# Definir uma função para verificar e escrever o arquivo
+# Define a function to check and write the file
 write_if_exists <- function(file_path, obj, driver = NULL) {
   if (is.null(driver)) {
     st_write(obj, file_path, delete_layer = TRUE)
@@ -384,18 +384,18 @@ write_if_exists <- function(file_path, obj, driver = NULL) {
 
 # Shapefile
 
-# Obter o diretório de trabalho atual
+# Get the current working directory
 current_directory <- getwd()
 
-# Definir o caminho completo para a subpasta
-output_directory <- file.path(current_directory, "SHP")  ########## ATENÇÃO AQUI PRA MUDAR PRO LINUX TAMBÉM
+# Define the full path to the subdirectory
+output_directory <- file.path(current_directory, "SHP")  ########## ATTENTION HERE TO CHANGE FOR LINUX TOO
 
-# Verificar se a pasta existe e criar se necessário
+# Check if the directory exists and create if necessary
 if (!dir.exists(output_directory)) {
   dir.create(output_directory)
 }
 
-# Suprimir avisos ao salvar os arquivos
+# Suppress warnings when saving files
 suppressWarnings(write_if_exists(file.path(output_directory, "occurrence_excluded.shp"), excluded_sf_data))
 
 # GeoJSON
@@ -408,13 +408,13 @@ suppressWarnings(write_if_exists("occurrence_excluded.gpkg", excluded_sf_data))
 suppressWarnings(write_if_exists("occurrence_excluded.kml", excluded_sf_data, driver = "KML"))
 
 
-# Suponha que sf_data_final é o seu objeto sf
+# Assume sf_data_final is your sf object
 sf_excluded_data_to_export <- st_as_sf(excluded_sf_data)
 
-# Converter a geometria para WKT
+# Convert the geometry to WKT
 sf_excluded_data_to_export$geometry <- st_as_text(sf_excluded_data_to_export$geometry)
 
-# Remover a classe sf do objeto para evitar erros
+# Remove the sf class from the object to avoid errors
 sf_excluded_data_to_export <- as.data.frame(sf_excluded_data_to_export)
 
 # CSV
@@ -431,18 +431,18 @@ write.csv(sf_excluded_data_to_export, "occurrence_excluded.csv", row.names = FAL
 sf_data <- sf_data %>% select(-wkt)
 sf_data_final <- sf_data_final %>% select(-wkt)
 
-# Obter o diretório de trabalho atual
+# Get the current working directory
 current_directory <- getwd()
 
-# Definir o caminho completo para a subpasta
-output_directory <- file.path(current_directory, "SHP")  ########## ATENÇÃO AQUI PRA MUDAR PRO LINUX TAMBÉM
+# Define the full path to the subdirectory
+output_directory <- file.path(current_directory, "SHP")  ########## ATTENTION HERE TO CHANGE FOR LINUX TOO
 
-# Verificar se a pasta existe e criar se necessário
+# Check if the directory exists and create if necessary
 if (!dir.exists(output_directory)) {
   dir.create(output_directory)
 }
 
-# Suprimir avisos ao salvar os arquivos
+# Suppress warnings when saving files
 suppressWarnings(write_if_exists(file.path(output_directory, "occurrence_filtered.shp"), sf_data_final))
 
 # GeoJSON
@@ -455,13 +455,13 @@ suppressWarnings(write_if_exists("occurrence_filtered.gpkg", sf_data_final))
 suppressWarnings(write_if_exists("occurrence_filtered.kml", sf_data_final, driver = "KML"))
 
 
-# Suponha que sf_data_final é o seu objeto sf
+# Assume sf_data_final is your sf object
 sf_data_to_export <- st_as_sf(sf_data_final)
 
-# Converter a geometria para WKT
+# Convert the geometry to WKT
 sf_data_to_export$geometry <- st_as_text(sf_data_to_export$geometry)
 
-# Remover a classe sf do objeto para evitar erros
+# Remove the sf class from the object to avoid errors
 sf_data_to_export <- as.data.frame(sf_data_to_export)
 
 # CSV
@@ -471,13 +471,13 @@ write.csv(sf_data_to_export, "occurrence_filtered.csv", row.names = FALSE)
 
 
 
-# Separar as coordenadas de geometria em colunas de latitude e longitude
+# Separate the geometry coordinates into latitude and longitude columns
 coords <- sf::st_coordinates(sf_data_final)
 sf_data_final$decimalLongitude <- coords[, "X"]
 sf_data_final$decimalLatitude <- coords[, "Y"]
 
 
-# Mapa leaflet
+# Leaflet map
 map_within_sa_ <- leaflet(sf_data_final) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
@@ -537,7 +537,7 @@ map_within_sa_ <- leaflet(sf_data_final) %>%
         div.querySelector('#search-button').onclick = function() {
           var searchValue = document.getElementById('search-box').value.toLowerCase();
 
-          // Processar a busca por múltiplas espécies separadas por vírgula
+          // Process the search for multiple species separated by commas
           var speciesArray = searchValue.split(',').map(function(species) {
             return species.trim();
           });
@@ -567,7 +567,7 @@ map_within_sa_ <- leaflet(sf_data_final) %>%
 
       searchControl.addTo(myMap);
 
-      // JavaScript to dynamically ajustar a largura da legenda
+      // JavaScript to dynamically adjust the legend width
       var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
       var maxWidth = 0;
 
