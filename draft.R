@@ -17,26 +17,38 @@ library(tidyr)
 library(tibble)
 library(retry)
 library(openxlsx)
+library(httr)
+library(jsonlite)
 
 
 #results <- occ_search(scientificName = "Gymnotus carapo", continent = "south_america", hasCoordinate = TRUE, basisOfRecord = "PRESERVED_SPECIMEN", limit = 100, fields = c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord"))
 
-taxa <- "Apteronotidae"
+# Define the taxon and get the taxon key
+taxa <- "Potamotrygonidae"
 taxon_key <- name_suggest(q = taxa, rank = "family") ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
 continents <- c("south_america")  # Vector of continents
 fields <- c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord", "occurrenceID")
 limit <- 400  # Number of records per request
-observation_type <- "PRESERVED_SPECIMEN"  # Filter for museum observations
+observation_types <- c("PRESERVED_SPECIMEN", "HUMAN_OBSERVATION")  # Vector of observation types
 all_data <- list()
 
-# Function to fetch data from GBIF for a specific continent and year
-fetch_data <- function(continent, year) {
-  start <- 0
+# Function to fetch data from GBIF for a specific continent, year, and observation type
+fetch_data <- function(continent, year = NULL, observation_type) {
+  start <- 0  # Initialize start as an integer
   continent_data <- list()
   repeat {
-    result <- occ_search(continent = continent, hasCoordinate = TRUE, taxonKey = taxon_key, basisOfRecord = observation_type, fields = fields, limit = limit, start = start, year = year)
+    result <- occ_search(
+      continent = continent, 
+      hasCoordinate = TRUE, 
+      taxonKey = taxon_key, 
+      basisOfRecord = observation_type, 
+      fields = fields, 
+      limit = limit, 
+      start = start, 
+      year = year
+    )
     if (is.null(result$data) || nrow(result$data) == 0) break
     
     # Ensure all required columns are present
@@ -46,7 +58,7 @@ fetch_data <- function(continent, year) {
     }
     
     continent_data <- append(continent_data, list(result$data))
-    start <- start + limit
+    start <- start + limit  # Increment start correctly
   }
   
   if (length(continent_data) > 0) {
@@ -56,15 +68,24 @@ fetch_data <- function(continent, year) {
   }
 }
 
-# Fetch data for each continent and year and combine into a single data frame
+# Fetch data for each continent, year, and observation type, and combine into a single data frame
 all_data <- list()
-years <- 2010:2023  # You can adjust the range of years as needed
+years <- 1970:2024  # You can adjust the range of years as needed
 for (continent in continents) {
-  for (year in years) {
-    cat("Fetching data for", continent, "in year", year, "\n")
-    data <- fetch_data(continent, year)
-    if (!is.null(data) && nrow(data) > 0) {
-      all_data <- append(all_data, list(data))
+  for (observation_type in observation_types) {
+    for (year in years) {
+      cat("Fetching data for", continent, "in year", year, "with observation type", observation_type, "\n")
+      data <- fetch_data(continent, year, observation_type)
+      if (!is.null(data) && nrow(data) > 0) {
+        all_data <- append(all_data, list(data))
+      }
+    }
+    
+    # Fetch data without year information
+    cat("Fetching data for", continent, "without year information with observation type", observation_type, "\n")
+    data_no_year <- fetch_data(continent, observation_type = observation_type)
+    if (!is.null(data_no_year) && nrow(data_no_year) > 0) {
+      all_data <- append(all_data, list(data_no_year))
     }
   }
 }
