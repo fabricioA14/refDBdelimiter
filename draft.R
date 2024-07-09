@@ -1,4 +1,3 @@
-
 library(rgbif)
 library(sf)
 library(concaveman)
@@ -24,12 +23,12 @@ library(jsonlite)
 #results <- occ_search(scientificName = "Gymnotus carapo", continent = "south_america", hasCoordinate = TRUE, basisOfRecord = "PRESERVED_SPECIMEN", limit = 100, fields = c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord"))
 
 # Define the taxon and get the taxon key
-taxa <- "Potamotrygonidae"
-taxon_key <- name_suggest(q = taxa, rank = "family") ; taxon_key <- taxon_key[["data"]][["key"]][1]
+taxa <- "Gymnotiformes"
+taxon_key <- name_suggest(q = taxa) ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
 continents <- c("south_america")  # Vector of continents
-fields <- c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord", "occurrenceID")
+fields <- c("country", "species", "genus", "family", "order", "class", "phylum", "kingdom", "decimalLongitude", "decimalLatitude", "basisOfRecord", "occurrenceID")
 limit <- 400  # Number of records per request
 observation_types <- c("PRESERVED_SPECIMEN", "HUMAN_OBSERVATION")  # Vector of observation types
 all_data <- list()
@@ -70,7 +69,7 @@ fetch_data <- function(continent, year = NULL, observation_type) {
 
 # Fetch data for each continent, year, and observation type, and combine into a single data frame
 all_data <- list()
-years <- 1970:2024  # You can adjust the range of years as needed
+years <- 2015:2024  # You can adjust the range of years as needed
 for (continent in continents) {
   for (observation_type in observation_types) {
     for (year in years) {
@@ -89,6 +88,7 @@ for (continent in continents) {
     }
   }
 }
+
 
 # Combine all data into a single data frame
 data <- do.call(rbind, all_data)
@@ -122,8 +122,8 @@ map_within_sa <- leaflet(data) %>%
     radius = 3,
     color = ~qual_palette(species),
     label = ~species,
-    popup = ~species,
-    group = ~species,
+    popup = ~paste("Species:", species, "<br>Family:", family),
+    group = ~paste(species, family, sep = ","),  # Include both species and family in group
     layerId = ~paste0(decimalLongitude, decimalLatitude, species)
   ) %>%
   addLegend(
@@ -147,20 +147,33 @@ map_within_sa <- leaflet(data) %>%
     function(el, x) {
       var myMap = this;
       var originalLayers = {};
-      var selectedSpecies = [];
+      var uniqueTaxa = new Set(); // Use a Set to store unique taxa
 
       myMap.eachLayer(function(layer) {
         if (layer.options && layer.options.group) {
           originalLayers[layer.options.layerId] = layer;
+          uniqueTaxa.add(layer.options.group); // Add the unique taxa
         }
       });
+
+      // Select all unique layers by default
+      var selectedTaxa = Array.from(uniqueTaxa);
+      selectedTaxa.forEach(function(taxon) {
+        Object.values(originalLayers).forEach(function(layer) {
+          if (layer.options.group === taxon) {
+            myMap.addLayer(layer);
+          }
+        });
+      });
+
+      Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
 
       var searchControl = L.control({position: 'bottomleft'});
 
       searchControl.onAdd = function(map) {
         var div = L.DomUtil.create('div', 'info legend');
-        div.innerHTML = '<h4>Search Species</h4>';
-        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species...\"><br>';
+        div.innerHTML = '<h4>Search Taxa</h4>';
+        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species or family...\"><br>';
         div.innerHTML += '<button id=\"search-button\">Search</button>';
 
         div.querySelector('#search-box').onfocus = function() {
@@ -179,33 +192,37 @@ map_within_sa <- leaflet(data) %>%
 
         div.querySelector('#search-button').onclick = function() {
           var searchValue = document.getElementById('search-box').value.toLowerCase();
-
-          if (searchValue !== '') {
-            var speciesArray = searchValue.split(',').map(function(species) {
-              return species.trim();
-            });
-            selectedSpecies = speciesArray;
-            Shiny.setInputValue('selected_species', speciesArray, {priority: 'event'});
-          }
+          var taxaArray = searchValue.split(',').map(function(taxon) {
+            return taxon.trim().toLowerCase();
+          });
 
           Object.values(originalLayers).forEach(function(layer) {
             myMap.removeLayer(layer);
           });
 
           if (searchValue === '') {
-            Object.values(originalLayers).forEach(function(layer) {
-              myMap.addLayer(layer);
+            selectedTaxa.forEach(function(taxon) {
+              Object.values(originalLayers).forEach(function(layer) {
+                if (layer.options.group.toLowerCase() === taxon.toLowerCase()) {
+                  myMap.addLayer(layer);
+                }
+              });
             });
           } else {
-            Object.entries(originalLayers).forEach(function([key, layer]) {
-              var layerSpecies = layer.options.group.toLowerCase();
-              if (speciesArray.some(function(species) { return layerSpecies.includes(species); })) {
-                myMap.addLayer(layer);
-              }
+            var foundLayers = new Set();
+            taxaArray.forEach(function(taxon) {
+              Object.values(originalLayers).forEach(function(layer) {
+                var layerGroup = layer.options.group.toLowerCase();
+                if (layerGroup.includes(taxon)) {
+                  myMap.addLayer(layer);
+                  foundLayers.add(layer.options.group);
+                }
+              });
             });
+            selectedTaxa = Array.from(foundLayers);
           }
 
-          console.log('Selected species:', speciesArray);
+          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
         };
 
         return div;
@@ -214,13 +231,13 @@ map_within_sa <- leaflet(data) %>%
       searchControl.addTo(myMap);
 
       myMap.on('draw:created', function(e) {
-        if (selectedSpecies.length > 0) {
+        if (selectedTaxa.length > 0) {
           var layer = e.layer;
           var layerType = e.layerType;
           Shiny.setInputValue('drawn_feature', {
             type: layerType,
             layer: layer.toGeoJSON(),
-            species: selectedSpecies
+            taxa: selectedTaxa
           });
         }
       });
@@ -258,8 +275,8 @@ server <- function(input, output, session) {
   
   output$map <- renderLeaflet(map_within_sa)
   
-  observeEvent(input$selected_species, {
-    newSearch <- input$selected_species
+  observeEvent(input$selected_taxa, {
+    newSearch <- input$selected_taxa
     currentSearches <- searchedValues()
     updatedSearches <- unique(c(currentSearches, unlist(newSearch)))
     searchedValues(updatedSearches)
@@ -268,17 +285,17 @@ server <- function(input, output, session) {
   
   observeEvent(input$drawn_feature, {
     feature <- input$drawn_feature
-    species <- feature$species
-    print(paste("New feature drawn for species:", species))
+    taxa <- feature$taxa
+    print(paste("New feature drawn for taxa:", taxa))
     
-    # Add the species and the drawn polygon to the list
+    # Add the taxa and the drawn polygon to the list
     currentFeatures <- drawnFeatures()
     updatedFeatures <- append(currentFeatures, list(feature))
     drawnFeatures(updatedFeatures)
     
-    # Update the global object with the drawn species
-    speciesList <- lapply(updatedFeatures, function(f) f$species)
-    assign("searchedValuesGlobal", speciesList, envir = .GlobalEnv)
+    # Update the global object with the drawn taxa
+    taxaList <- lapply(updatedFeatures, function(f) f$taxa)
+    assign("searchedValuesGlobal", taxaList, envir = .GlobalEnv)
     assign("drawnFeaturesGlobal", updatedFeatures, envir = .GlobalEnv)
   })
   
@@ -294,27 +311,28 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 
 
-# Function to capitalize the first character of a string
+# Function to capitalize the first letter of each string in a vector
 capitalize <- function(x) {
-  sapply(x, function(y) {
-    paste(toupper(substring(y, 1, 1)), substring(y, 2), sep = "")
-  })
+  sapply(x, function(y) paste0(toupper(substring(y, 1, 1)), substring(y, 2)), USE.NAMES = FALSE)
 }
 
-# Function to ensure unique row names
+# Function to make unique names
 make_unique_names <- function(names) {
   make.unique(names, sep = " ")
 }
 
 # Function to extract the data and create a data frame
 extract_data <- function(data) {
-  ids <- unlist(lapply(data, function(x) rep(x$layer$properties$`_leaflet_id`, length(x$species))))
-  feature_types <- unlist(lapply(data, function(x) rep(x$layer$properties$feature_type, length(x$species))))
+  # Extract and modify the taxa vector
+  taxa <- unlist(lapply(data, function(x) x$taxa))
+  taxa <- sub(",.*", "", taxa)
+  
+  ids <- unlist(lapply(data, function(x) rep(x$layer$properties$`_leaflet_id`, length(x$taxa))))
+  feature_types <- unlist(lapply(data, function(x) rep(x$layer$properties$feature_type, length(x$taxa))))
   geometries <- unlist(lapply(data, function(x) {
     coords <- x$layer$geometry$coordinates[[1]]
-    replicate(length(x$species), st_polygon(list(matrix(unlist(coords), ncol = 2, byrow = TRUE))), simplify = FALSE)
+    replicate(length(x$taxa), st_polygon(list(matrix(unlist(coords), ncol = 2, byrow = TRUE))), simplify = FALSE)
   }), recursive = FALSE)
-  species <- unlist(lapply(data, function(x) x$species))
   
   df <- data.frame(
     leaflet_id = ids,
@@ -323,7 +341,7 @@ extract_data <- function(data) {
   )
   
   df <- st_sf(df, geometry = st_sfc(geometries))
-  rownames(df) <- make_unique_names(capitalize(species))
+  rownames(df) <- make_unique_names(capitalize(as.character(taxa)))
   
   # Set the CRS for the sf object
   st_crs(df) <- 4326  # CRS WGS 84
@@ -334,172 +352,79 @@ extract_data <- function(data) {
 # Convert to an sf object
 selected_sf <- extract_data(drawnFeaturesGlobal)
 
-# Function to remove trailing numbers and whitespace from names
-remove_trailing_numbers <- function(name) {
-  gsub(" [0-9]+$", "", name)
-}
+#rownames(selected_sf) <- sub(",.*", "", rownames(selected_sf))
 
-# Initialize sf_data_final with the original dataset
-sf_data_final <- sf_data
+# Initialize lists to store the search results for each row
+all_search_results_inside <- list()
 
-# Loop over each species in the list
-for (i in seq_along(row.names(selected_sf))) {
-  # Check which species is being viewed
-  selected_species <- row.names(selected_sf)[i]
+# Loop over each row of selected_sf
+for (i in 1:nrow(selected_sf)) {
+  # Extract the name from the current row of selected_sf
+  name_to_search <- rownames(selected_sf[i, ])
   
-  # Remove trailing numbers and whitespace from the name
-  cleaned_species <- remove_trailing_numbers(selected_species)
+  # Remove trailing numbers from the name
+  name_to_search <- remove_trailing_numbers(name_to_search)
   
-  # Filter the data for the selected species
-  sf_data_selected_species <- sf_data %>% filter(species == cleaned_species)
+  # Extract the polygon from the current row of selected_sf
+  current_polygon <- selected_sf[i, 3]
   
-  # Initialize a variable to accumulate intersections
-  all_intersections <- rep(FALSE, nrow(sf_data_selected_species))
+  # Initialize an empty data frame to store the search results
+  search_results <- data.frame()
   
-  # Loop over all polygons with the same cleaned species name
-  for (j in seq_along(row.names(selected_sf))) {
-    if (remove_trailing_numbers(row.names(selected_sf)[j]) == cleaned_species) {
-      # Check intersections within the filtered dataset
-      intersections <- st_intersects(sf_data_selected_species, selected_sf[j,], sparse = FALSE)
-      
-      # Accumulate the intersections
-      all_intersections <- all_intersections | apply(intersections, 1, any)
-    }
+  # First search in the 'species' column
+  search_results <- sf_data[sf_data$species == name_to_search, ]
+  
+  # If not found in 'species', search in 'genus'
+  if (nrow(search_results) == 0) {
+    search_results <- sf_data[sf_data$genus == name_to_search, ]
   }
   
-  # Check for intersections and apply filter
-  if (any(all_intersections)) {
-    sf_data_cleaned <- sf_data_selected_species[!all_intersections, ]
+  # If not found in 'genus', search in 'family'
+  if (nrow(search_results) == 0) {
+    search_results <- sf_data[sf_data$family == name_to_search, ]
+  }
+  
+  # Check if the points are within the polygon
+  if (nrow(search_results) > 0) {
+    points_sf <- st_as_sf(search_results, coords = c("longitude", "latitude"), crs = st_crs(selected_sf))
+    within_polygon <- st_intersects(points_sf, current_polygon, sparse = FALSE)
+    
+    # Separate points that are within and outside the polygon
+    search_results_inside <- search_results[within_polygon, ]
   } else {
-    sf_data_cleaned <- sf_data_selected_species
+    search_results_inside <- data.frame()
   }
   
-  # Combine the cleaned data of the selected species with the data of other species
-  sf_data_final <- bind_rows(sf_data_final %>% filter(species != cleaned_species), sf_data_cleaned)
+  # Store the search results for the current row
+  all_search_results_inside[[i]] <- search_results_inside
 }
 
+# Filter out sublists with 0 rows
+all_search_results_inside <- Filter(function(x) nrow(x) > 0, all_search_results_inside)
+
+# Combine all search results into single data frames (optional)
+final_results_inside <- do.call(rbind, all_search_results_inside)
 
 # Add WKT column for geometry comparison
 sf_data$wkt <- st_as_text(sf_data$geometry)
-sf_data_final$wkt <- st_as_text(sf_data_final$geometry)
+final_results_inside$wkt <- st_as_text(final_results_inside$geometry)
 
 # Perform anti-join to find unique rows in sf_data
-unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(sf_data_final), 
-                         by = c("basisOfRecord", "family", "genus", "species", "country", "occurrenceID", "name", "wkt"))
+unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(final_results_inside), 
+                         by = c("basisOfRecord", "species", "genus", "family", "order", "class", "phylum", "kingdom", "country", "occurrenceID", "wkt"))
 
 # Convert back to sf and remove WKT column
-excluded_sf_data <- st_as_sf(unique_rows, wkt = "wkt", crs = st_crs(sf_data)) %>% select(-wkt)
-
-
-##########################################################################################
-
-
-# Define a function to check and write the file
-write_if_exists <- function(file_path, obj, driver = NULL) {
-  if (is.null(driver)) {
-    st_write(obj, file_path, delete_layer = TRUE)
-  } else {
-    st_write(obj, file_path, driver = driver, delete_layer = TRUE)
-  }
-}
-
-# Shapefile
-
-# Get the current working directory
-current_directory <- getwd()
-
-# Define the full path to the subdirectory
-output_directory <- file.path(current_directory, "SHP")  ########## ATTENTION HERE TO CHANGE FOR LINUX TOO
-
-# Check if the directory exists and create if necessary
-if (!dir.exists(output_directory)) {
-  dir.create(output_directory)
-}
-
-# Suppress warnings when saving files
-suppressWarnings(write_if_exists(file.path(output_directory, "occurrence_excluded.shp"), excluded_sf_data))
-
-# GeoJSON
-suppressWarnings(write_if_exists("occurrence_excluded.geojson", excluded_sf_data, driver = "GeoJSON"))
-
-# GeoPackage
-suppressWarnings(write_if_exists("occurrence_excluded.gpkg", excluded_sf_data))
-
-# KML
-suppressWarnings(write_if_exists("occurrence_excluded.kml", excluded_sf_data, driver = "KML"))
-
-
-# Assume sf_data_final is your sf object
-sf_excluded_data_to_export <- st_as_sf(excluded_sf_data)
-
-# Convert the geometry to WKT
-sf_excluded_data_to_export$geometry <- st_as_text(sf_excluded_data_to_export$geometry)
-
-# Remove the sf class from the object to avoid errors
-sf_excluded_data_to_export <- as.data.frame(sf_excluded_data_to_export)
-
-# CSV
-write.csv(sf_excluded_data_to_export, "occurrence_excluded.csv", row.names = FALSE)
-
-
-##########################################################################################
-
-
-
-##########################################################################################
-
-# Remove WKT column from original sf objects
-sf_data <- sf_data %>% select(-wkt)
-sf_data_final <- sf_data_final %>% select(-wkt)
-
-# Get the current working directory
-current_directory <- getwd()
-
-# Define the full path to the subdirectory
-output_directory <- file.path(current_directory, "SHP")  ########## ATTENTION HERE TO CHANGE FOR LINUX TOO
-
-# Check if the directory exists and create if necessary
-if (!dir.exists(output_directory)) {
-  dir.create(output_directory)
-}
-
-# Suppress warnings when saving files
-suppressWarnings(write_if_exists(file.path(output_directory, "occurrence_filtered.shp"), sf_data_final))
-
-# GeoJSON
-suppressWarnings(write_if_exists("occurrence_filtered.geojson", sf_data_final, driver = "GeoJSON"))
-
-# GeoPackage
-suppressWarnings(write_if_exists("occurrence_filtered.gpkg", sf_data_final))
-
-# KML
-suppressWarnings(write_if_exists("occurrence_filtered.kml", sf_data_final, driver = "KML"))
-
-
-# Assume sf_data_final is your sf object
-sf_data_to_export <- st_as_sf(sf_data_final)
-
-# Convert the geometry to WKT
-sf_data_to_export$geometry <- st_as_text(sf_data_to_export$geometry)
-
-# Remove the sf class from the object to avoid errors
-sf_data_to_export <- as.data.frame(sf_data_to_export)
-
-# CSV
-write.csv(sf_data_to_export, "occurrence_filtered.csv", row.names = FALSE)
-
-##########################################################################################
-
+final_results_outside <- st_as_sf(unique_rows, wkt = "wkt", crs = st_crs(sf_data)) %>% select(-wkt)
 
 
 # Separate the geometry coordinates into latitude and longitude columns
-coords <- sf::st_coordinates(sf_data_final)
-sf_data_final$decimalLongitude <- coords[, "X"]
-sf_data_final$decimalLatitude <- coords[, "Y"]
+coords <- sf::st_coordinates(final_results_outside)
+final_results_outside$decimalLongitude <- coords[, "X"]
+final_results_outside$decimalLatitude <- coords[, "Y"]
 
 
 # Leaflet map
-map_within_sa_ <- leaflet(sf_data_final) %>%
+map_within_sa_ <- leaflet(final_results_outside) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
     lng = ~decimalLongitude, lat = ~decimalLatitude,
