@@ -431,8 +431,8 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
     radius = 3,
     color = ~qual_palette(species),
     label = ~species,
-    popup = ~species,
-    group = ~species,
+    popup = ~paste("Species:", species, "<br>Family:", family),
+    group = ~paste(species, family, sep = ","),  # Include both species and family in group
     layerId = ~paste0(decimalLongitude, decimalLatitude, species)
   ) %>%
   addLegend(
@@ -451,19 +451,33 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
     function(el, x) {
       var myMap = this;
       var originalLayers = {};
+      var uniqueTaxa = new Set(); // Use a Set to store unique taxa
 
       myMap.eachLayer(function(layer) {
         if (layer.options && layer.options.group) {
           originalLayers[layer.options.layerId] = layer;
+          uniqueTaxa.add(layer.options.group); // Add the unique taxa
         }
       });
+
+      // Select all unique layers by default
+      var selectedTaxa = Array.from(uniqueTaxa);
+      selectedTaxa.forEach(function(taxon) {
+        Object.values(originalLayers).forEach(function(layer) {
+          if (layer.options.group === taxon) {
+            myMap.addLayer(layer);
+          }
+        });
+      });
+
+      Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
 
       var searchControl = L.control({position: 'bottomleft'});
 
       searchControl.onAdd = function(map) {
         var div = L.DomUtil.create('div', 'info legend');
-        div.innerHTML = '<h4>Search Species</h4>';
-        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species...\"><br>';
+        div.innerHTML = '<h4>Search Taxa</h4>';
+        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for taxa...\"><br>';
         div.innerHTML += '<button id=\"search-button\">Search</button>';
 
         div.querySelector('#search-box').onfocus = function() {
@@ -482,10 +496,8 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
 
         div.querySelector('#search-button').onclick = function() {
           var searchValue = document.getElementById('search-box').value.toLowerCase();
-
-          // Process the search for multiple species separated by commas
-          var speciesArray = searchValue.split(',').map(function(species) {
-            return species.trim();
+          var taxaArray = searchValue.split(',').map(function(taxon) {
+            return taxon.trim().toLowerCase();
           });
 
           Object.values(originalLayers).forEach(function(layer) {
@@ -493,25 +505,46 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
           });
 
           if (searchValue === '') {
-            Object.values(originalLayers).forEach(function(layer) {
-              myMap.addLayer(layer);
+            selectedTaxa.forEach(function(taxon) {
+              Object.values(originalLayers).forEach(function(layer) {
+                if (layer.options.group.toLowerCase() === taxon.toLowerCase()) {
+                  myMap.addLayer(layer);
+                }
+              });
             });
           } else {
-            Object.entries(originalLayers).forEach(function([key, layer]) {
-              var layerSpecies = layer.options.group.toLowerCase();
-              if (speciesArray.some(function(species) { return layerSpecies.includes(species); })) {
-                myMap.addLayer(layer);
-              }
+            var foundLayers = new Set();
+            taxaArray.forEach(function(taxon) {
+              Object.values(originalLayers).forEach(function(layer) {
+                var layerGroup = layer.options.group.toLowerCase();
+                if (layerGroup.includes(taxon)) {
+                  myMap.addLayer(layer);
+                  foundLayers.add(layer.options.group);
+                }
+              });
             });
+            selectedTaxa = Array.from(foundLayers);
           }
 
-          console.log('Selected species:', speciesArray);
+          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
         };
 
         return div;
       };
 
       searchControl.addTo(myMap);
+
+      myMap.on('draw:created', function(e) {
+        if (selectedTaxa.length > 0) {
+          var layer = e.layer;
+          var layerType = e.layerType;
+          Shiny.setInputValue('drawn_feature', {
+            type: layerType,
+            layer: layer.toGeoJSON(),
+            taxa: selectedTaxa
+          });
+        }
+      });
 
       // JavaScript to dynamically adjust the legend width
       var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
@@ -542,3 +575,5 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
