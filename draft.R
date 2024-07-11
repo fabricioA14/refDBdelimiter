@@ -15,16 +15,15 @@ if (length(vars) != 0) {
 # Load all the packages
 sapply(pack, require, character.only = TRUE)
 
-
 #results <- occ_search(scientificName = "Gymnotus carapo", continent = "south_america", hasCoordinate = TRUE, basisOfRecord = "PRESERVED_SPECIMEN", limit = 100, fields = c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord"))
 
 # Define the taxon and get the taxon key
-taxa <- "Mollusca"
+taxa <- "Apteronotus"
 taxon_key <- name_suggest(q = taxa) ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
 continents <- c("south_america")  # Vector of continents
-fields <- c("gbifID","scientificName", "country", "stateProvince", "county", "locality", "species", "genus", "family", "order", "class", "phylum", "kingdom", "decimalLongitude", "decimalLatitude", "basisOfRecord", "verbatimEventDate")
+fields <- c("gbifID","scientificName", "country", "stateProvince", "county", "locality", "species", "genus", "family", "order", "class", "phylum", "kingdom", "decimalLongitude", "decimalLatitude", "basisOfRecord", "verbatimEventDate","year")
 limit <- 400  # Number of records per request
 observation_types <- c("PRESERVED_SPECIMEN")  # Vector of observation types
 all_data <- list()
@@ -87,7 +86,8 @@ for (continent in continents) {
 
 
 # Combine all data into a single data frame
-data <- do.call(rbind, all_data)
+data <- rbind(do.call(rbind, all_data),data_no_year)
+
 
 # Exclude rows with missing coordinates and where the "species" column has NA values
 data <- data[!is.na(data$decimalLongitude) & !is.na(data$decimalLatitude) & !is.na(data$species), ]

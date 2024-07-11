@@ -34,25 +34,25 @@ final_occurrence_data_$.scientificName_empty %>% table() # this is the new colum
 # 2 - Records lacking information on geographic coordinates
 # This is a VALIDATION. Flag records missing partial or complete information on geographic coordinates
 # will be flagged as FALSE.
-final_occurrence_data_ <- bdc_coordinates_empty(
-  data = final_occurrence_data_,
-  lat = "decimalLatitude",
-  lon = "decimalLongitude"
-)
+#final_occurrence_data_ <- bdc_coordinates_empty(
+#  data = final_occurrence_data_,
+#  lat = "decimalLatitude",
+#  lon = "decimalLongitude"
+#)
 
 
-final_occurrence_data_$.coordinates_empty %>% table() # this is the new column for flagging incomplete/missing coordinates (TRUE or FALSE)
+#final_occurrence_data_$.coordinates_empty %>% table() # this is the new column for flagging incomplete/missing coordinates (TRUE or FALSE)
 
 # 3 - Records with out-of-range coordinates
 # This is a VALIDATION. This test flags records with out-of-range coordinates:
 # latitude > 90 or -90; longitude >180 or -180 (i.e. geographically impossible coordinates)
-final_occurrence_data_ <- bdc_coordinates_outOfRange(
-  data = final_occurrence_data_,
-  lat = "decimalLatitude",
-  lon = "decimalLongitude"
-)
+#final_occurrence_data_ <- bdc_coordinates_outOfRange(
+#  data = final_occurrence_data_,
+#  lat = "decimalLatitude",
+#  lon = "decimalLongitude"
+#)
 
-final_occurrence_data_$.coordinates_outOfRange %>% table()
+#final_occurrence_data_$.coordinates_outOfRange %>% table()
 
 
 # 4 - Records from doubtful sources
@@ -95,17 +95,6 @@ final_occurrence_data_$country %>% unique()
 # This is an ENRICHMENT function because the country names are standardized against
 # a list of country names in several languages retrieved from Wikipedia.
 # Selecionar linhas únicas com base na coluna 'country'
-# Function to remove characters after a specific character
-#remove_after <- function(x, char) {
-#  sub(paste0(char, ".*"), "", x)
-#}
-
-# Apply the function to remove characters after "," or "("
-#final_occurrence_data_ <- final_occurrence_data_ %>%
-#  mutate(
-#    country = remove_after(country, ","),
-#    country = remove_after(country, "\\(") # Need to escape "(" with "\\"
-#  )
 
 final_occurrence_data_ <- bdc_country_standardized(
   data = final_occurrence_data_,
@@ -134,22 +123,22 @@ ctrn <- final_occurrence_data_ %>%
 # coordinates can be created in the Output folder if save_outputs = TRUE). Records near
 # countries coastline are not tested to avoid false positives.
 
-final_occurrence_data_ <- final_occurrence_data_ %>% mutate(database_id = "gbif")  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
+#final_occurrence_data_ <- final_occurrence_data_ %>% mutate(database_id = "gbif")  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
 
-final_occurrence_data_ <-
-  bdc_coordinates_transposed(
-    data = final_occurrence_data_,
-    id = "database_id",
-    sci_names = "scientificName",
-    lat = "decimalLatitude",
-    lon = "decimalLongitude",
-    country = "country_suggested",
-    countryCode = "countryCode",
-    border_buffer = 0.1, # in decimal degrees (~11 km at the equator)
-    save_outputs = FALSE
-  )
+#final_occurrence_data_ <-
+#  bdc_coordinates_transposed(
+#    data = final_occurrence_data_,
+#    id = "database_id",
+#    sci_names = "scientificName",
+#    lat = "decimalLatitude",
+#    lon = "decimalLongitude",
+#    country = "country_suggested",
+#    countryCode = "countryCode",
+#    border_buffer = 0.1, # in decimal degrees (~11 km at the equator)
+#    save_outputs = FALSE
+#  )
 
-final_occurrence_data_$coordinates_transposed %>% table()  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
+#final_occurrence_data_$coordinates_transposed %>% table()  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
 
 # 8 - Records outside a region of interest
 # This is a VALIDATION function because records outside one or multiple reference countries
@@ -165,13 +154,13 @@ cntr <- final_occurrence_data_$country_suggested %>%
   unique() %>%
   na.omit() %>%
   c()
-cntr
+#cntr
 
 # Just for this example lets test only those countries were both species used here naturally distribute
 #cntr <- c(
-#  "Brazil",
-#  "Ecuador",
-#  "Paraguay",
+  #"Brazil",
+  #"Ecuador",
+  #"Paraguay",
 #  "Peru",
 #  "Colombia",
 #  "Guyana",
@@ -281,27 +270,6 @@ spl <- unique(check_taxonomy$names_clean) %>% sort() # list of raw species names
 # https://github.com/brunobrr/bdc/issues/233
 # Run fs::dir_delete(taxadb:::taxadb_dir())  and the try use the function again
 
-result <- tryCatch(
-  {
-    bdc_query_names_taxadb(
-      sci_name            = spl[1:2],
-      replace_synonyms    = TRUE,
-      suggest_names       = TRUE,
-      suggestion_distance = 0.9,
-      db                  = "gbif",
-      rank_name           = "kingdom",
-      rank                = "Apteronotus",
-      parallel            = FALSE,
-      ncores              = 2,
-      export_accepted     = FALSE
-    )
-  },
-  error = function(e) {
-    cat("Error: ", e$message, "\n")
-    NULL
-  }
-)
-
 query_names <- bdc_query_names_taxadb(
   sci_name            = spl,
   replace_synonyms    = TRUE, # replace synonyms by accepted names?
@@ -373,10 +341,18 @@ View(query_names)
 nome_map <- setNames(query_names$scientificName, query_names$original_search)
 
 # Replace the values in the 'scientificName' column in check_taxonomy
-check_taxonomy$scientificName_test <- nome_map[check_taxonomy$names_clean]
+check_taxonomy$scientificName_updated <- nome_map[check_taxonomy$names_clean]
+
+# If a name is not found, we insert the respective name from the 'names clean' column
+check_taxonomy <- check_taxonomy %>%
+  mutate(scientificName_updated = if_else(is.na(scientificName_updated), names_clean, scientificName_updated))
 
 # Remove columns with only NA values
 taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.)))
+
+# Find duplicates
+#duplicates <- taxonomy_cleaned %>%
+#  filter(duplicated(select(., scientificName_updated,decimalLongitude,decimalLatitude)))
 
 
 ## %######################################################%##
@@ -412,7 +388,7 @@ check_space %>%
 
 
 # 2) flag common spatial issues using functions of the package CoordinateCleaner.
-?clean_coordinates
+#?clean_coordinates
 
 # the process of spatial cleaning is processed by species, therefor it is important
 # the database has a column with cleaned and updated species names
@@ -422,7 +398,7 @@ check_space <-
     x = check_space,
     lon = "decimalLongitude",
     lat = "decimalLatitude",
-    species = "scientificName", # Species names with genus and species
+    species = "scientificName_updated", # Species names with genus and species
     countries = ,
     tests = c(
       "capitals", # records within 3km of capitals and province centroids
@@ -490,24 +466,24 @@ space_cleaned <- space_cleaned %>% select_if(~ !all(is.na(.)))
 # in species distribution model is not recommended use data from all time periods (i.e., <1950)
 # because they could have low geographical precision
 
-space_cleaned
+#space_cleaned
 
-space_cleaned$year %>% hist() # seems to be very old records in the database
-space_cleaned$year %>% range(., na.rm = T)
+#space_cleaned$year %>% hist() # seems to be very old records in the database
+#space_cleaned$year %>% range(., na.rm = T)
 
 
 # 1) Records lacking event date information
 # VALIDATION. This  function flags records lacking event date information (e.g., empty or NA).
 
-check_time <-
-  bdc_eventDate_empty(data = space_cleaned, eventDate = "verbatimEventDate") %>% tibble()
+#check_time <-
+#  bdc_eventDate_empty(data = space_cleaned, eventDate = "verbatimEventDate") %>% tibble()
 
 # 2) Records with out-of-range collecting year
 # VALIDATION. This function identifies records with illegitimate or potentially imprecise # collecting years. The year provided can be out-of-range (e.g., in the future) or
 # collected before a specified year supplied by the user (e.g., 1950).
 check_time <-
   bdc_year_outOfRange(
-    data = check_time,
+    data = space_cleaned,
     eventDate = "year",
     year_threshold = 1950
   )
