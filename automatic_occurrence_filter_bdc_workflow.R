@@ -13,7 +13,7 @@ library(hexbin)
 # 1 - Records with missing species names
 final_occurrence_data_ <-
   bdc_scientificName_empty(
-    data = final_results_outside,
+    data = data,
     sci_name = "scientificName"
   )
 
@@ -79,28 +79,40 @@ final_occurrence_data_ <- bdc_country_from_coordinates(
 
 final_occurrence_data_$country %>% unique()
 
-
 # 6 - Standardizing country names and getting country code information
 # This is an ENRICHMENT function because the country names are standardized against
 # a list of country names in several languages retrieved from Wikipedia.
-final_occurrence_data_ <- bdc_country_standardized(
-  data = final_occurrence_data_,
-  country = "country"
-)
+# Selecionar linhas únicas com base na coluna 'country'
+# Function to remove characters after a specific character
+remove_after <- function(x, char) {
+  sub(paste0(char, ".*"), "", x)
+}
+
+# Apply the function to remove characters after "," or "("
+final_occurrence_data_ <- final_occurrence_data_ %>%
+  mutate(
+    country = remove_after(country, ","),
+    country = remove_after(country, "\\(") # Need to escape "(" with "\\"
+  )
+
+#final_occurrence_data_ <- bdc_country_standardized(
+#  data = final_occurrence_data_,
+#  country = "country"
+#)
+
 # original messy country names
 final_occurrence_data_$country %>%
   unique() %>%
   sort()
- corrected and standardized country names
-final_occurrence_data_$country_suggested %>%
+# corrected and standardized country names
+final_occurrence_data_$country %>%
   unique() %>%
   sort()
 # It is good to check the names to be sure that the corrected country names were correctly matched
 ctrn <- final_occurrence_data_ %>%
-  dplyr::select(country_suggested, country) %>%
+  dplyr::select(country, country) %>%
   unique() %>%
-  arrange(country_suggested)
-View(ctrn)
+  arrange(country)
 
 # 7 - Correcting latitude and longitude that have been "transposed"
 # The mismatch between the country listed and coordinates can be the result of transposed
@@ -119,7 +131,7 @@ final_occurrence_data_ <-
     sci_names = "scientificName",
     lat = "decimalLatitude",
     lon = "decimalLongitude",
-    country = "country_suggested",
+    country = "country",
     countryCode = "countryCode",
     border_buffer = 0.1, # in decimal degrees (~11 km at the equator)
     save_outputs = FALSE
@@ -137,7 +149,7 @@ final_occurrence_data_$coordinates_transposed %>% table()  #######ESSE PROCESSO 
 # In this case all countries; however, we can test only for countries where our species are native
 # for instance, using Argentina, Brazil, Paraguay, and Bolivia.
 
-cntr <- final_occurrence_data_$country_suggested %>%
+cntr <- final_occurrence_data_$country %>%
   unique() %>%
   na.omit() %>%
   c()
@@ -200,20 +212,10 @@ report
 # passing in all tests (i.e., flagged as TRUE). Next, we use
 # the bdc_filter_out_flags function to remove all tests columns (that is, those starting with '.').
 
-output <-
+pre_filtered_data <-
   final_occurrence_data_ %>%
   dplyr::filter(.summary == TRUE) %>%
   bdc_filter_out_flags(data = ., col_to_remove = "all")
-
-
-# Saving the database
-# You can use qs::qread() instead of write_csv to save a large database in a compressed format
-
-output %>%
-  readr::write_csv(
-    .,
-    file.path(getwd(), "Output", "Intermediate", "01_prefilter_database.csv")
-  )
 
 
 ## %######################################################%##
@@ -221,10 +223,6 @@ output %>%
 ####                      TAXONOMY                      ####
 #                                                          #
 ## %######################################################%##
-
-# Read the prefiltered database
-db <-
-  readr::read_csv(file.path(getwd(), ("Output/Intermediate/01_prefilter_database.csv")))
 
 ##### 1) Clean and parse species names
 
@@ -234,7 +232,7 @@ db <-
 # This step is important for helping update specie names (see next function)
 parse_names <-
   bdc_clean_names(
-    sci_names = unique(db$scientificName), # unique of species names
+    sci_names = unique(pre_filtered_data$scientificName), # unique of species names
     save_outputs = FALSE
   )
 parse_names # note that we have names_clean column
@@ -247,7 +245,7 @@ parse_names # note that we have names_clean column
 # being 1 no problem detected, 4 serious problems detected; a value of
 # 0 indicates no interpretable name that was not parsed).
 
-check_taxonomy <- dplyr::left_join(db, parse_names, by = "scientificName")
+check_taxonomy <- dplyr::left_join(pre_filtered_data, parse_names, by = "scientificName")
 check_taxonomy
 
 check_taxonomy$scientificName %>% unique() # raw names
@@ -261,10 +259,11 @@ check_taxonomy$names_clean %>% unique() # now the names are cleaned and prepare 
 # See the taxonomic database available until now in bdc in:
 # https://brunobrr.github.io/bdc/articles/taxonomy.html
 # In this case we will use GBIF as taxonomic authority
-?bdc_query_names_taxadb
-
+#?bdc_query_names_taxadb
 
 spl <- unique(check_taxonomy$names_clean) %>% sort() # list of raw species names
+
+#filtered_vec <- spl[sapply(strsplit(spl, " "), length) > 1]
 
 # If you have trouble with "bdc_query_names_taxadb" function see this issue about "duckbd"
 # https://github.com/brunobrr/bdc/issues/233
@@ -276,7 +275,7 @@ query_names <- bdc_query_names_taxadb(
   suggest_names       = TRUE, # try to found a candidate name for misspelled names?
   suggestion_distance = 0.9, # distance between the searched and suggested names
   db                  = "gbif", # taxonomic database
-  rank_name           = "Apteronotus", # a taxonomic rank
+  rank_name           = "Apteronotidae", # a taxonomic rank
   rank                = "kingdom", # name of the taxonomic rank
   parallel            = FALSE, # should parallel processing be used?
   ncores              = 2, # number of cores to be used in the palatalization process

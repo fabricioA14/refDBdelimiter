@@ -1,36 +1,32 @@
-library(rgbif)
-library(sf)
-library(concaveman)
-library(ggplot2)
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(leaflet)
-library(mapedit)
-library(leaflet.extras2)
-library(dplyr)
-library(RColorBrewer)
-library(leaflet.extras)
-library(shiny)
-library(htmlwidgets)
-library(tidyr)
-library(tibble)
-library(retry)
-library(openxlsx)
-library(httr)
-library(jsonlite)
+# List of packages to ensure are installed and loaded
+pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth',
+          'rnaturalearthdata', 'leaflet', 'mapedit', 'leaflet.extras2', 
+          'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets', 
+          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc')
+
+# Check for packages that are not installed
+vars <- pack[!(pack %in% installed.packages()[, "Package"])]
+
+# Install any packages that are not already installed
+if (length(vars) != 0) {
+  install.packages(vars, dependencies = TRUE)
+}
+
+# Load all the packages
+sapply(pack, require, character.only = TRUE)
 
 
 #results <- occ_search(scientificName = "Gymnotus carapo", continent = "south_america", hasCoordinate = TRUE, basisOfRecord = "PRESERVED_SPECIMEN", limit = 100, fields = c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord"))
 
 # Define the taxon and get the taxon key
-taxa <- "Gymnotiformes"
+taxa <- "Mollusca"
 taxon_key <- name_suggest(q = taxa) ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
 continents <- c("south_america")  # Vector of continents
-fields <- c("country", "species", "genus", "family", "order", "class", "phylum", "kingdom", "decimalLongitude", "decimalLatitude", "basisOfRecord", "occurrenceID")
+fields <- c("gbifID","scientificName", "country", "stateProvince", "county", "locality", "species", "genus", "family", "order", "class", "phylum", "kingdom", "decimalLongitude", "decimalLatitude", "basisOfRecord", "verbatimEventDate")
 limit <- 400  # Number of records per request
-observation_types <- c("PRESERVED_SPECIMEN", "HUMAN_OBSERVATION")  # Vector of observation types
+observation_types <- c("PRESERVED_SPECIMEN")  # Vector of observation types
 all_data <- list()
 
 # Function to fetch data from GBIF for a specific continent, year, and observation type
@@ -69,7 +65,7 @@ fetch_data <- function(continent, year = NULL, observation_type) {
 
 # Fetch data for each continent, year, and observation type, and combine into a single data frame
 all_data <- list()
-years <- 2015:2024  # You can adjust the range of years as needed
+years <- 2018:2024  # You can adjust the range of years as needed
 for (continent in continents) {
   for (observation_type in observation_types) {
     for (year in years) {
@@ -354,6 +350,10 @@ selected_sf <- extract_data(drawnFeaturesGlobal)
 
 #rownames(selected_sf) <- sub(",.*", "", rownames(selected_sf))
 
+remove_trailing_numbers <- function(name) {
+  gsub(" [0-9]+$", "", name)
+}
+
 # Initialize lists to store the search results for each row
 all_search_results_inside <- list()
 
@@ -411,7 +411,7 @@ final_results_inside$wkt <- st_as_text(final_results_inside$geometry)
 
 # Perform anti-join to find unique rows in sf_data
 unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(final_results_inside), 
-                         by = c("basisOfRecord", "species", "genus", "family", "order", "class", "phylum", "kingdom", "country", "occurrenceID", "wkt"))
+                         by = c("basisOfRecord", "species", "genus", "family", "order", "class", "phylum", "kingdom", "country", "wkt"))
 
 # Convert back to sf and remove WKT column
 final_results_outside <- st_as_sf(unique_rows, wkt = "wkt", crs = st_crs(sf_data)) %>% select(-wkt)
@@ -431,8 +431,8 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
     radius = 3,
     color = ~qual_palette(species),
     label = ~species,
-    popup = ~paste("Species:", species, "<br>Family:", family),
-    group = ~paste(species, family, sep = ","),  # Include both species and family in group
+    popup = ~paste("Species:", species,"<br>Genus:", genus, "<br>Family:", family),
+    group = ~paste(species, genus, family, sep = ","),  # Include both species and family in group
     layerId = ~paste0(decimalLongitude, decimalLatitude, species)
   ) %>%
   addLegend(
@@ -575,5 +575,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
-
