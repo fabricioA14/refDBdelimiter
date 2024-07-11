@@ -1,6 +1,18 @@
-library(cowplot)
-library(rworldmap)
-library(hexbin)
+#remotes::install_github("brunobrr/bdc")
+#library(bdc) # Biodiversity data cleaning
+
+###### Packages
+{
+  require(dplyr) # Manipulate data
+  require(readr) # Read and writ data
+  require(bdc) # Biodiversity data cleaning
+  require(ggplot2) # Plot data
+  require(sf) # For handling spatial data
+  require(maps) # A spatial database of country boundaries
+  require(rnaturalearth)
+  require(rnaturalearthdata)
+  require(readxl)
+}
 
 ## %#######################################################################%##
 ## %##      IMPORTANT: # The results of the VALIDATION test              ##%##
@@ -84,35 +96,35 @@ final_occurrence_data_$country %>% unique()
 # a list of country names in several languages retrieved from Wikipedia.
 # Selecionar linhas únicas com base na coluna 'country'
 # Function to remove characters after a specific character
-remove_after <- function(x, char) {
-  sub(paste0(char, ".*"), "", x)
-}
+#remove_after <- function(x, char) {
+#  sub(paste0(char, ".*"), "", x)
+#}
 
 # Apply the function to remove characters after "," or "("
-final_occurrence_data_ <- final_occurrence_data_ %>%
-  mutate(
-    country = remove_after(country, ","),
-    country = remove_after(country, "\\(") # Need to escape "(" with "\\"
-  )
+#final_occurrence_data_ <- final_occurrence_data_ %>%
+#  mutate(
+#    country = remove_after(country, ","),
+#    country = remove_after(country, "\\(") # Need to escape "(" with "\\"
+#  )
 
-#final_occurrence_data_ <- bdc_country_standardized(
-#  data = final_occurrence_data_,
-#  country = "country"
-#)
+final_occurrence_data_ <- bdc_country_standardized(
+  data = final_occurrence_data_,
+  country = "country"
+)
 
 # original messy country names
-final_occurrence_data_$country %>%
+final_occurrence_data_$country_suggested %>%
   unique() %>%
   sort()
 # corrected and standardized country names
-final_occurrence_data_$country %>%
+final_occurrence_data_$country_suggested %>%
   unique() %>%
   sort()
 # It is good to check the names to be sure that the corrected country names were correctly matched
 ctrn <- final_occurrence_data_ %>%
-  dplyr::select(country, country) %>%
+  dplyr::select(country_suggested, country) %>%
   unique() %>%
-  arrange(country)
+  arrange(country_suggested)
 
 # 7 - Correcting latitude and longitude that have been "transposed"
 # The mismatch between the country listed and coordinates can be the result of transposed
@@ -131,7 +143,7 @@ final_occurrence_data_ <-
     sci_names = "scientificName",
     lat = "decimalLatitude",
     lon = "decimalLongitude",
-    country = "country",
+    country = "country_suggested",
     countryCode = "countryCode",
     border_buffer = 0.1, # in decimal degrees (~11 km at the equator)
     save_outputs = FALSE
@@ -149,7 +161,7 @@ final_occurrence_data_$coordinates_transposed %>% table()  #######ESSE PROCESSO 
 # In this case all countries; however, we can test only for countries where our species are native
 # for instance, using Argentina, Brazil, Paraguay, and Bolivia.
 
-cntr <- final_occurrence_data_$country %>%
+cntr <- final_occurrence_data_$country_suggested %>%
   unique() %>%
   na.omit() %>%
   c()
@@ -172,7 +184,7 @@ cntr
 # Note that in this step we can test
 final_occurrence_data_ <- bdc_coordinates_country_inconsistent(
   data = final_occurrence_data_,
-  country = "country",
+  country = "country_suggested",
   country_name = cntr,
   lon = "decimalLongitude",
   lat = "decimalLatitude",
@@ -269,14 +281,35 @@ spl <- unique(check_taxonomy$names_clean) %>% sort() # list of raw species names
 # https://github.com/brunobrr/bdc/issues/233
 # Run fs::dir_delete(taxadb:::taxadb_dir())  and the try use the function again
 
+result <- tryCatch(
+  {
+    bdc_query_names_taxadb(
+      sci_name            = spl[1:2],
+      replace_synonyms    = TRUE,
+      suggest_names       = TRUE,
+      suggestion_distance = 0.9,
+      db                  = "gbif",
+      rank_name           = "kingdom",
+      rank                = "Apteronotus",
+      parallel            = FALSE,
+      ncores              = 2,
+      export_accepted     = FALSE
+    )
+  },
+  error = function(e) {
+    cat("Error: ", e$message, "\n")
+    NULL
+  }
+)
+
 query_names <- bdc_query_names_taxadb(
   sci_name            = spl,
   replace_synonyms    = TRUE, # replace synonyms by accepted names?
   suggest_names       = TRUE, # try to found a candidate name for misspelled names?
   suggestion_distance = 0.9, # distance between the searched and suggested names
   db                  = "gbif", # taxonomic database
-  rank_name           = "Apteronotidae", # a taxonomic rank
-  rank                = "kingdom", # name of the taxonomic rank
+  rank_name           = "Apteronotus", # a taxonomic rank
+  rank                = "family", # name of the taxonomic rank
   parallel            = FALSE, # should parallel processing be used?
   ncores              = 2, # number of cores to be used in the palatalization process
   export_accepted     = FALSE # save names linked to multiple accepted names
