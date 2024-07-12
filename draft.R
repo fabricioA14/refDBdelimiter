@@ -18,7 +18,7 @@ sapply(pack, require, character.only = TRUE)
 #results <- occ_search(scientificName = "Gymnotus carapo", continent = "south_america", hasCoordinate = TRUE, basisOfRecord = "PRESERVED_SPECIMEN", limit = 100, fields = c("country", "name", "species", "genus", "family", "decimalLongitude", "decimalLatitude", "basisOfRecord"))
 
 # Define the taxon and get the taxon key
-taxa <- "Apteronotus"
+taxa <- "Gymnotiformes"
 taxon_key <- name_suggest(q = taxa) ; taxon_key <- taxon_key[["data"]][["key"]][1]
 
 # Define the search parameters
@@ -64,7 +64,7 @@ fetch_data <- function(continent, year = NULL, observation_type) {
 
 # Fetch data for each continent, year, and observation type, and combine into a single data frame
 all_data <- list()
-years <- 2018:2024  # You can adjust the range of years as needed
+years <- 2020:2024  # You can adjust the range of years as needed
 for (continent in continents) {
   for (observation_type in observation_types) {
     for (year in years) {
@@ -88,20 +88,27 @@ for (continent in continents) {
 # Combine all data into a single data frame
 data <- rbind(do.call(rbind, all_data),data_no_year)
 
+data <- data %>%
+  mutate(taxa = if_else(!is.na(species), species, 
+                        if_else(!is.na(genus), genus, 
+                                if_else(!is.na(family), family, 
+                                        if_else(!is.na(order), order, 
+                                                if_else(!is.na(class), class, kingdom))))))
 
-# Exclude rows with missing coordinates and where the "species" column has NA values
-data <- data[!is.na(data$decimalLongitude) & !is.na(data$decimalLatitude) & !is.na(data$species), ]
+data <- data %>%
+  mutate(identification_level = case_when(
+    !is.na(species) ~ "species",
+    !is.na(genus) ~ "genus",
+    !is.na(family) ~ "family",
+    !is.na(order) ~ "order",
+    !is.na(class) ~ "class",
+    !is.na(phylum) ~ "phylum",
+    !is.na(kingdom) ~ "kingdom",
+    TRUE ~ "unknown"
+  ))
 
 # Convert data to sf
 sf_data <- st_as_sf(data, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
-
-# Exclude rows with missing coordinates and where the "species" column has NA values
-data <- data[!is.na(data$decimalLongitude) & !is.na(data$decimalLatitude) & !is.na(data$species), ]
-
-# Define a color palette for the species
-#qual_palette <- colorFactor(palette = "Dark2", domain = sf_data$species)
-qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = sf_data$species)
-
 
 scrollable_legend_css <- "
 .info.legend {
@@ -110,22 +117,25 @@ scrollable_legend_css <- "
 }
 "
 
+# Define a color palette for the species
+qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = data$taxa)
+
 # Leaflet map
 map_within_sa <- leaflet(data) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
     lng = ~decimalLongitude, lat = ~decimalLatitude,
     radius = 3,
-    color = ~qual_palette(species),
-    label = ~species,
-    popup = ~paste("Species:", species, "<br>Family:", family),
-    group = ~paste(species, family, sep = ","),  # Include both species and family in group
-    layerId = ~paste0(decimalLongitude, decimalLatitude, species)
+    color = ~qual_palette(taxa),
+    label = ~taxa,
+    popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Level:", identification_level),
+    group = ~paste(taxa, genus, family, identification_level, sep = ","),  # Include identification level in group
+    layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, identification_level)
   ) %>%
   addLegend(
     position = "bottomright",
     pal = qual_palette,
-    values = ~species,
+    values = ~taxa,
     title = "Species",
     opacity = 1,
     labFormat = function(type, cuts, p) {
@@ -187,19 +197,21 @@ map_within_sa <- leaflet(data) %>%
         };
 
         div.querySelector('#search-button').onclick = function() {
-          var searchValue = document.getElementById('search-box').value.toLowerCase();
+          var searchValue = document.getElementById('search-box').value;
           var taxaArray = searchValue.split(',').map(function(taxon) {
-            return taxon.trim().toLowerCase();
+            return taxon.trim();
           });
 
           Object.values(originalLayers).forEach(function(layer) {
             myMap.removeLayer(layer);
           });
 
-          if (searchValue === '') {
+          if (searchValue === 'all' || searchValue === '') {
+            // Select all unique layers if search value is 'all' or empty
+            selectedTaxa = Array.from(uniqueTaxa);
             selectedTaxa.forEach(function(taxon) {
               Object.values(originalLayers).forEach(function(layer) {
-                if (layer.options.group.toLowerCase() === taxon.toLowerCase()) {
+                if (layer.options.group === taxon) {
                   myMap.addLayer(layer);
                 }
               });
@@ -208,10 +220,26 @@ map_within_sa <- leaflet(data) %>%
             var foundLayers = new Set();
             taxaArray.forEach(function(taxon) {
               Object.values(originalLayers).forEach(function(layer) {
-                var layerGroup = layer.options.group.toLowerCase();
-                if (layerGroup.includes(taxon)) {
-                  myMap.addLayer(layer);
-                  foundLayers.add(layer.options.group);
+                var layerGroup = layer.options.group;
+                var isGenusSearch = taxon.endsWith(' (genus)');
+                var isFamilySearch = taxon.endsWith(' (family)');
+                var taxonWithoutSuffix = taxon.replace(' (genus)', '').replace(' (family)', '');
+
+                if (isGenusSearch) {
+                  if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
+                } else if (isFamilySearch) {
+                  if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
+                } else {
+                  if (layerGroup.includes(taxonWithoutSuffix)) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
                 }
               });
             });
@@ -354,6 +382,9 @@ remove_trailing_numbers <- function(name) {
   gsub(" [0-9]+$", "", name)
 }
 
+
+#search_results <- sf_data[sf_data$genus == "Apteronotus", ]
+
 # Initialize lists to store the search results for each row
 all_search_results_inside <- list()
 
@@ -372,17 +403,17 @@ for (i in 1:nrow(selected_sf)) {
   search_results <- data.frame()
   
   # First search in the 'species' column
-  search_results <- sf_data[sf_data$species == name_to_search, ]
+  search_results <- sf_data[sf_data$taxa == name_to_search, ]
   
   # If not found in 'species', search in 'genus'
-  if (nrow(search_results) == 0) {
-    search_results <- sf_data[sf_data$genus == name_to_search, ]
-  }
+  #if (nrow(search_results) == 0) {
+  #  search_results <- sf_data[sf_data$genus == name_to_search, ]
+  #}
   
   # If not found in 'genus', search in 'family'
-  if (nrow(search_results) == 0) {
-    search_results <- sf_data[sf_data$family == name_to_search, ]
-  }
+  #if (nrow(search_results) == 0) {
+  #  search_results <- sf_data[sf_data$family == name_to_search, ]
+  #}
   
   # Check if the points are within the polygon
   if (nrow(search_results) > 0) {
@@ -423,22 +454,24 @@ final_results_outside$decimalLongitude <- coords[, "X"]
 final_results_outside$decimalLatitude <- coords[, "Y"]
 
 
+
+
 # Leaflet map
-map_within_sa_ <- leaflet(final_results_outside) %>%
+map_within_sa <- leaflet(data) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
     lng = ~decimalLongitude, lat = ~decimalLatitude,
     radius = 3,
-    color = ~qual_palette(species),
-    label = ~species,
-    popup = ~paste("Species:", species,"<br>Genus:", genus, "<br>Family:", family),
-    group = ~paste(species, genus, family, sep = ","),  # Include both species and family in group
-    layerId = ~paste0(decimalLongitude, decimalLatitude, species)
+    color = ~qual_palette(taxa),
+    label = ~taxa,
+    popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Level:", identification_level),
+    group = ~paste(taxa, genus, family, order, identification_level, sep = ","),  # Include identification level in group
+    layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, order, identification_level)
   ) %>%
   addLegend(
     position = "bottomright",
     pal = qual_palette,
-    values = ~species,
+    values = ~taxa,
     title = "Species",
     opacity = 1,
     labFormat = function(type, cuts, p) {
@@ -477,7 +510,7 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
       searchControl.onAdd = function(map) {
         var div = L.DomUtil.create('div', 'info legend');
         div.innerHTML = '<h4>Search Taxa</h4>';
-        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for taxa...\"><br>';
+        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, or order...\"><br>';
         div.innerHTML += '<button id=\"search-button\">Search</button>';
 
         div.querySelector('#search-box').onfocus = function() {
@@ -495,19 +528,21 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
         };
 
         div.querySelector('#search-button').onclick = function() {
-          var searchValue = document.getElementById('search-box').value.toLowerCase();
+          var searchValue = document.getElementById('search-box').value;
           var taxaArray = searchValue.split(',').map(function(taxon) {
-            return taxon.trim().toLowerCase();
+            return taxon.trim();
           });
 
           Object.values(originalLayers).forEach(function(layer) {
             myMap.removeLayer(layer);
           });
 
-          if (searchValue === '') {
+          if (searchValue === 'all' || searchValue === '') {
+            // Select all unique layers if search value is 'all' or empty
+            selectedTaxa = Array.from(uniqueTaxa);
             selectedTaxa.forEach(function(taxon) {
               Object.values(originalLayers).forEach(function(layer) {
-                if (layer.options.group.toLowerCase() === taxon.toLowerCase()) {
+                if (layer.options.group === taxon) {
                   myMap.addLayer(layer);
                 }
               });
@@ -516,10 +551,26 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
             var foundLayers = new Set();
             taxaArray.forEach(function(taxon) {
               Object.values(originalLayers).forEach(function(layer) {
-                var layerGroup = layer.options.group.toLowerCase();
-                if (layerGroup.includes(taxon)) {
-                  myMap.addLayer(layer);
-                  foundLayers.add(layer.options.group);
+                var layerGroup = layer.options.group;
+                var isGenusSearch = taxon.endsWith(' (genus)');
+                var isFamilySearch = taxon.endsWith(' (family)');
+                var taxonWithoutSuffix = taxon.replace(' (genus)', '').replace(' (family)', '');
+
+                if (isGenusSearch) {
+                  if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
+                } else if (isFamilySearch) {
+                  if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
+                } else {
+                  if (layerGroup.includes(taxonWithoutSuffix)) {
+                    myMap.addLayer(layer);
+                    foundLayers.add(layer.options.group);
+                  }
                 }
               });
             });
@@ -533,18 +584,6 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
       };
 
       searchControl.addTo(myMap);
-
-      myMap.on('draw:created', function(e) {
-        if (selectedTaxa.length > 0) {
-          var layer = e.layer;
-          var layerType = e.layerType;
-          Shiny.setInputValue('drawn_feature', {
-            type: layerType,
-            layer: layer.toGeoJSON(),
-            taxa: selectedTaxa
-          });
-        }
-      });
 
       // JavaScript to dynamically adjust the legend width
       var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
@@ -567,11 +606,28 @@ map_within_sa_ <- leaflet(final_results_outside) %>%
 ui <- fillPage(
   tags$style(type = "text/css", "#map {height: calc(100vh - 20px) !important;}"),
   tags$style(HTML(scrollable_legend_css)),  # Add the custom CSS for scrollable legend
-  leafletOutput("map")
+  leafletOutput("map"),
+  verbatimTextOutput("searchedValuesOutput"),
+  verbatimTextOutput("drawnFeaturesOutput")
 )
 
 server <- function(input, output, session) {
-  output$map <- renderLeaflet(map_within_sa_)
+  
+  searchedValues <- reactiveVal(character(0))
+  
+  output$map <- renderLeaflet(map_within_sa)
+  
+  observeEvent(input$selected_taxa, {
+    newSearch <- input$selected_taxa
+    currentSearches <- searchedValues()
+    updatedSearches <- unique(c(currentSearches, unlist(newSearch)))
+    searchedValues(updatedSearches)
+    assign("searchedValuesGlobal", updatedSearches, envir = .GlobalEnv)
+  })
+  
+  output$searchedValuesOutput <- renderPrint({
+    searchedValues()
+  })
 }
 
 shinyApp(ui, server)
