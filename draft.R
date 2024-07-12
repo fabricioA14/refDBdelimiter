@@ -80,8 +80,8 @@ for (continent in continents) {
     #data_no_year <- fetch_data(continent, observation_type = observation_type)
     #if (!is.null(data_no_year) && nrow(data_no_year) > 0) {
     #  all_data <- append(all_data, list(data_no_year))
+    }
   }
-}
 }
 
 # Combine all data into a single data frame

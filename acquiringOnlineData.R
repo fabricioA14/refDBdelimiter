@@ -1,18 +1,60 @@
-#remotes::install_github("brunobrr/bdc")
-#library(bdc) # Biodiversity data cleaning
 
-###### Packages
-{
-  require(dplyr) # Manipulate data
-  require(readr) # Read and writ data
-  require(bdc) # Biodiversity data cleaning
-  require(ggplot2) # Plot data
-  require(sf) # For handling spatial data
-  require(maps) # A spatial database of country boundaries
-  require(rnaturalearth)
-  require(rnaturalearthdata)
-  require(readxl)
+# Define the taxon and get the taxon key
+taxa <- "Apteronotus"
+taxon_key <- name_suggest(q = taxa) ; taxon_key <- taxon_key[["data"]][["key"]][1]
+
+# Define the search parameters
+continents <- c("south_america")  # Vector of continents
+fields <- c("gbifID","continent", "scientificName", "country", "stateProvince", "county", 
+            "locality", "species", "genus", "family", "order", "class", 
+            "phylum", "kingdom", "decimalLongitude", "decimalLatitude", 
+            "basisOfRecord", "verbatimEventDate", "year")
+limit <- 400  # Number of records per request
+observation_types <- c("PRESERVED_SPECIMEN")  # Vector of observation types
+all_data <- list()
+
+# Fetch data for each continent, year, and observation type, and combine into a single data frame
+all_data <- list()
+years <- 2020:2024  # You can adjust the range of years as needed
+for (continent in continents) {
+  for (observation_type in observation_types) {
+    for (year in years) {
+      cat("Fetching data for", continent, "in year", year, "with observation type", observation_type, "\n")
+      data <- fetch_data(continent, year, observation_type)
+      if (!is.null(data) && nrow(data) > 0) {
+        all_data <- append(all_data, list(data))
+      }
+    }
+    
+    # Fetch data without year information
+    #cat("Fetching data for", continent, "without year information with observation type", observation_type, "\n")
+    #data_no_year <- fetch_data(continent, observation_type = observation_type)
+    #if (!is.null(data_no_year) && nrow(data_no_year) > 0) {
+    #  all_data <- append(all_data, list(data_no_year))
+  }
 }
+
+# Combine all data into a single data frame
+data <- do.call(rbind, all_data) ; rm(all_data)
+
+###################################  For bdc Cleaning ###################################
+
+# All necessary fields
+fields <- c("gbifID","continent", "scientificName", "countryCode", "stateProvince","country", "county", 
+            "locality", "species", "genus", "family", "order", "class", 
+            "phylum", "kingdom", "decimalLongitude", "decimalLatitude", 
+            "basisOfRecord", "verbatimEventDate", "year")
+
+### Pre-Treatment
+
+library(data.table)
+
+fields <- c("gbifID","scientificName", "countryCode", "stateProvince", "locality",
+            "decimalLongitude", "decimalLatitude", "basisOfRecord", "year")
+
+# Read the CSV file into a data.table
+data <- fread("gbifChordata.csv", select = fields, nrows = 100000)
+
 
 ## %#######################################################################%##
 ## %##      IMPORTANT: # The results of the VALIDATION test              ##%##
@@ -21,125 +63,90 @@
 ## %##     retrieved as TRUE (ok) or FALSE (check carefully).            ##%##
 ## %#######################################################################%##
 
-
 # 1 - Records with missing species names
-final_occurrence_data_ <-
+dataPreProcess <-
   bdc_scientificName_empty(
     data = data,
     sci_name = "scientificName"
-  )
-
-final_occurrence_data_$.scientificName_empty %>% table() # this is the new column for missing species names (TRUE or FALSE)
+  ) ; rm(data)
 
 # 2 - Records lacking information on geographic coordinates
 # This is a VALIDATION. Flag records missing partial or complete information on geographic coordinates
 # will be flagged as FALSE.
-#final_occurrence_data_ <- bdc_coordinates_empty(
-#  data = final_occurrence_data_,
-#  lat = "decimalLatitude",
-#  lon = "decimalLongitude"
-#)
-
-
-#final_occurrence_data_$.coordinates_empty %>% table() # this is the new column for flagging incomplete/missing coordinates (TRUE or FALSE)
+dataPreProcess <- bdc_coordinates_empty(
+  data = dataPreProcess,
+  lat = "decimalLatitude",
+  lon = "decimalLongitude"
+)
 
 # 3 - Records with out-of-range coordinates
 # This is a VALIDATION. This test flags records with out-of-range coordinates:
 # latitude > 90 or -90; longitude >180 or -180 (i.e. geographically impossible coordinates)
-#final_occurrence_data_ <- bdc_coordinates_outOfRange(
-#  data = final_occurrence_data_,
-#  lat = "decimalLatitude",
-#  lon = "decimalLongitude"
-#)
-
-#final_occurrence_data_$.coordinates_outOfRange %>% table()
-
+dataPreProcess <- bdc_coordinates_outOfRange(
+  data = dataPreProcess,
+  lat = "decimalLatitude",
+  lon = "decimalLongitude"
+)
 
 # 4 - Records from doubtful sources
 # This is a VALIDATION. This test flags records from doubtful source. For example, records from
 # drawings, photographs, or multimedia objects, fossil records, among others.
-final_occurrence_data_ <- bdc_basisOfRecords_notStandard(
-  data = final_occurrence_data_,
+dataPreProcess <- bdc_basisOfRecords_notStandard(
+  data = dataPreProcess,
   basisOfRecord = "basisOfRecord",
   names_to_keep = "all"
 )
 
-final_occurrence_data_$.basisOfRecords_notStandard %>% table()
+#dataPreProcess %>% # if we explore the frequency of different sources we get this
+#  dplyr::group_by(basisOfRecord) %>%
+#  dplyr::summarise(n = dplyr::n())
 
-final_occurrence_data_ %>% # if we explore the frequency of different sources we get this
-  dplyr::group_by(basisOfRecord) %>%
-  dplyr::summarise(n = dplyr::n())
 
+#install.packages("countrycode")
+library(countrycode)
+
+# Create a named vector with unique country codes and their names using ISO2
+unique_country_codes <- unique(dataPreProcess$countryCode)
+country_names <- countrycode(unique_country_codes, origin = "iso2c", destination = "country.name")
+nome_map <- setNames(country_names, unique_country_codes)
+
+# Map the country codes to country names and create a new column, keeping NA as NA
+dataPreProcess <- dataPreProcess %>%
+  mutate(country = nome_map[countryCode])
+
+# Add the new column in the desired position
+dataPreProcess <- add_column(dataPreProcess, country = dataPreProcess$country)
+
+# Reorder columns
+dataPreProcess <- dataPreProcess %>% select(gbifID, scientificName, countryCode, country, everything())
 
 # 5 - Getting country names from valid coordinates
 # This is an ENRICHMENT function because it improves the database by deriving country names
 # based on coordinates for records with missing country names.
 
-final_occurrence_data_ <- bdc_country_from_coordinates(
-  data = final_occurrence_data_,
+dataPreProcess <- bdc_country_from_coordinates(
+  data = dataPreProcess,
   lat = "decimalLatitude",
   lon = "decimalLongitude",
   country = "country"
 )
 
 
-final_occurrence_data_ <- bdc_country_from_coordinates(
-  data = final_occurrence_data_,
+dataPreProcess <- bdc_country_from_coordinates(
+  data = dataPreProcess,
   lat = "decimalLatitude",
   lon = "decimalLongitude",
   country = "country"
 )
-
-final_occurrence_data_$country %>% unique()
 
 # 6 - Standardizing country names and getting country code information
 # This is an ENRICHMENT function because the country names are standardized against
 # a list of country names in several languages retrieved from Wikipedia.
-# Selecionar linhas únicas com base na coluna 'country'
 
-final_occurrence_data_ <- bdc_country_standardized(
-  data = final_occurrence_data_,
-  country = "country"
-)
-
-# original messy country names
-final_occurrence_data_$country_suggested %>%
-  unique() %>%
-  sort()
-# corrected and standardized country names
-final_occurrence_data_$country_suggested %>%
-  unique() %>%
-  sort()
-# It is good to check the names to be sure that the corrected country names were correctly matched
-ctrn <- final_occurrence_data_ %>%
-  dplyr::select(country_suggested, country) %>%
-  unique() %>%
-  arrange(country_suggested)
-
-# 7 - Correcting latitude and longitude that have been "transposed"
-# The mismatch between the country listed and coordinates can be the result of transposed
-# signs (+ -) or coordinates. Once a mismatch is detected, different coordinate transformations are made
-# to correct the country and coordinates mismatch. Verbatim coordinates are then replaced by the
-# rectified ones in the returned database (a database containing verbatim and corrected
-# coordinates can be created in the Output folder if save_outputs = TRUE). Records near
-# countries coastline are not tested to avoid false positives.
-
-#final_occurrence_data_ <- final_occurrence_data_ %>% mutate(database_id = "gbif")  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
-
-#final_occurrence_data_ <-
-#  bdc_coordinates_transposed(
-#    data = final_occurrence_data_,
-#    id = "database_id",
-#    sci_names = "scientificName",
-#    lat = "decimalLatitude",
-#    lon = "decimalLongitude",
-#    country = "country_suggested",
-#    countryCode = "countryCode",
-#    border_buffer = 0.1, # in decimal degrees (~11 km at the equator)
-#    save_outputs = FALSE
-#  )
-
-#final_occurrence_data_$coordinates_transposed %>% table()  #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
+#dataPreProcess <- bdc_country_standardized(
+#  data = dataPreProcess,
+#  country = "country"
+#)
 
 # 8 - Records outside a region of interest
 # This is a VALIDATION function because records outside one or multiple reference countries
@@ -151,30 +158,15 @@ ctrn <- final_occurrence_data_ %>%
 # In this case all countries; however, we can test only for countries where our species are native
 # for instance, using Argentina, Brazil, Paraguay, and Bolivia.
 
-cntr <- final_occurrence_data_$country_suggested %>%
+cntr <- dataPreProcess$country %>%
   unique() %>%
   na.omit() %>%
   c()
-#cntr
 
-# Just for this example lets test only those countries were both species used here naturally distribute
-#cntr <- c(
-  #"Brazil",
-  #"Ecuador",
-  #"Paraguay",
-#  "Peru",
-#  "Colombia",
-#  "Guyana",
-#  "French Guiana",
-#  "Venezuela",
-#  "Suriname",
-#  "Bolivia"
-#)
-
-# Note that in this step we can test
-final_occurrence_data_ <- bdc_coordinates_country_inconsistent(
-  data = final_occurrence_data_,
-  country = "country_suggested",
+# Note that in this step we can test  ##TRY TO RUN IN A LOOP LATER
+dataPreProcess <- bdc_coordinates_country_inconsistent(
+  data = dataPreProcess,
+  country = "country",
   country_name = cntr,
   lon = "decimalLongitude",
   lat = "decimalLatitude",
@@ -185,40 +177,22 @@ final_occurrence_data_ <- bdc_coordinates_country_inconsistent(
 # ENRICHMENT. Coordinates can be derived from a detailed description of the locality associated with
 # records in a process called retrospective geo-referencing.
 xyFromLocality <- bdc_coordinates_from_locality(
-  data = final_occurrence_data_,
+  data = dataPreProcess,
   locality = "locality",
   lon = "decimalLongitude",
   lat = "decimalLatitude",
   save_outputs = TRUE # This is for saving the output
 )
-xyFromLocality[, c("country", "stateProvince", "county", "locality")]
+xyFromLocality[, c("country", "stateProvince", "locality")] ## "county" is not available in the simple version of gbif download
 # Note that this create a new database with coordinates for records that were geo-referenced
 
+dataPreProcess <- bdc_summary_col(data = dataPreProcess)
 
-final_occurrence_data_ <- bdc_summary_col(data = final_occurrence_data_) #######ESSE PROCESSO ESTÁ GERANDO CERTOS ERROS
-
-# Creating a report summarizing the results of all tests.
-report <-
-  bdc_create_report(
-    data = final_occurrence_data_,
-    database_id = "gbif",
-    workflow_step = "prefilter",
-    save_report = TRUE # For saving report
-  )
-
-report
-
-# Filtering the database
-# We can remove records flagged as erroneous or suspect to obtain a cleaner database.
-# We can use the column .summary to filter valid records
-# passing in all tests (i.e., flagged as TRUE). Next, we use
-# the bdc_filter_out_flags function to remove all tests columns (that is, those starting with '.').
-
+# Pre-filtered dataset
 pre_filtered_data <-
-  final_occurrence_data_ %>%
+  dataPreProcess %>%
   dplyr::filter(.summary == TRUE) %>%
   bdc_filter_out_flags(data = ., col_to_remove = "all")
-
 
 ## %######################################################%##
 #                                                          #
@@ -237,7 +211,6 @@ parse_names <-
     sci_names = unique(pre_filtered_data$scientificName), # unique of species names
     save_outputs = FALSE
   )
-parse_names # note that we have names_clean column
 
 # scientificName: original names supplied
 # .uncer_terms: indicates the presence of taxonomic uncertainty terms (e.g., sp., aff., affin.)
@@ -247,11 +220,10 @@ parse_names # note that we have names_clean column
 # being 1 no problem detected, 4 serious problems detected; a value of
 # 0 indicates no interpretable name that was not parsed).
 
-check_taxonomy <- dplyr::left_join(pre_filtered_data, parse_names, by = "scientificName")
-check_taxonomy
+check_taxonomy <- dplyr::left_join(pre_filtered_data, parse_names, by = "scientificName")  ; rm(pre_filtered_data) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
 
-check_taxonomy$scientificName %>% unique() # raw names
-check_taxonomy$names_clean %>% unique() # now the names are cleaned and prepare to be checked
+#check_taxonomy$scientificName %>% unique() # raw names
+#check_taxonomy$names_clean %>% unique() # now the names are cleaned and prepare to be checked
 # and updated in a taxonomic authority database
 # Note that despite species names being corrected, several names could be or not
 # synonyms
@@ -277,14 +249,14 @@ query_names <- bdc_query_names_taxadb(
   suggest_names       = TRUE, # try to found a candidate name for misspelled names?
   suggestion_distance = 0.9, # distance between the searched and suggested names
   db                  = "gbif", # taxonomic database
-  rank_name           = "Apteronotus", # a taxonomic rank
-  rank                = "family", # name of the taxonomic rank
+  rank_name           = "Chordata", # a taxonomic rank
+  rank                = "phylum", # name of the taxonomic rank
   parallel            = FALSE, # should parallel processing be used?
   ncores              = 2, # number of cores to be used in the palatalization process
   export_accepted     = FALSE # save names linked to multiple accepted names
 )
 
-View(query_names)
+#View(query_names)
 
 # This step is crucial, so it is recommended to check all names
 # and update it by hand in case you need it. For instance, we can save the
@@ -351,18 +323,11 @@ check_taxonomy <- check_taxonomy %>%
 # Remove columns with only NA values
 taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.)))
 
-# Find duplicates
-#duplicates <- taxonomy_cleaned %>%
-#  filter(duplicated(select(., scientificName_updated,decimalLongitude,decimalLatitude)))
-
-
 ## %######################################################%##
 #                                                          #
 ####                       SPACE                        ####
 #                                                          #
 ## %######################################################%##
-
-#db <- readr::read_csv(file.path(getwd(), "Output", "Intermediate", "01_prefilter_database.csv"))
 
 # 1) Flagging common spatial issues
 # This function identifies records with a coordinate precision below a specified number
@@ -379,7 +344,7 @@ check_space <-
     lon = "decimalLongitude",
     lat = "decimalLatitude",
     ndec = 3 # number of decimals to be tested
-  )
+  ) ; rm(taxonomy_cleaned) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
 
 #table(check_space$.rou) # 740 records have < 3 decimals
 
@@ -454,9 +419,6 @@ space_cleaned <-
 # Remove columns with only NA values
 space_cleaned <- space_cleaned %>% select_if(~ !all(is.na(.)))
 
-#nrow(check_space)
-#nrow(check_space_final)
-
 ## %######################################################%##
 #                                                          #
 ####                        TIME                        ####
@@ -487,7 +449,7 @@ check_time <-
     data = space_cleaned,
     eventDate = "year",
     year_threshold = 1950
-  )
+  ) ; rm(space_cleaned) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
 
 
 # Report
@@ -500,12 +462,8 @@ report <-
     save_report = FALSE
   )
 
-report
-
 time_cleaned <-
   check_time %>%
   dplyr::filter(.summary == TRUE) %>%
   bdc_filter_out_flags(data = ., col_to_remove = "all") %>%
   dplyr::tibble()
-
-
