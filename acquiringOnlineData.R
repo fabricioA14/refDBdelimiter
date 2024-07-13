@@ -63,14 +63,14 @@ data <- fread("gbifChordata.csv", select = fields, nrows = 100000)
 ## %##     retrieved as TRUE (ok) or FALSE (check carefully).            ##%##
 ## %#######################################################################%##
 
-# 1 - Records with missing species names
+# Records with missing species names
 dataPreProcess <-
   bdc_scientificName_empty(
     data = data,
     sci_name = "scientificName"
   ) ; rm(data)
 
-# 2 - Records lacking information on geographic coordinates
+# Records lacking information on geographic coordinates
 # This is a VALIDATION. Flag records missing partial or complete information on geographic coordinates
 # will be flagged as FALSE.
 dataPreProcess <- bdc_coordinates_empty(
@@ -79,7 +79,7 @@ dataPreProcess <- bdc_coordinates_empty(
   lon = "decimalLongitude"
 )
 
-# 3 - Records with out-of-range coordinates
+# Records with out-of-range coordinates
 # This is a VALIDATION. This test flags records with out-of-range coordinates:
 # latitude > 90 or -90; longitude >180 or -180 (i.e. geographically impossible coordinates)
 dataPreProcess <- bdc_coordinates_outOfRange(
@@ -88,7 +88,7 @@ dataPreProcess <- bdc_coordinates_outOfRange(
   lon = "decimalLongitude"
 )
 
-# 4 - Records from doubtful sources
+# Records from doubtful sources
 # This is a VALIDATION. This test flags records from doubtful source. For example, records from
 # drawings, photographs, or multimedia objects, fossil records, among others.
 dataPreProcess <- bdc_basisOfRecords_notStandard(
@@ -101,9 +101,6 @@ dataPreProcess <- bdc_basisOfRecords_notStandard(
 #  dplyr::group_by(basisOfRecord) %>%
 #  dplyr::summarise(n = dplyr::n())
 
-
-#install.packages("countrycode")
-library(countrycode)
 
 # Create a named vector with unique country codes and their names using ISO2
 unique_country_codes <- unique(dataPreProcess$countryCode)
@@ -120,7 +117,7 @@ dataPreProcess <- add_column(dataPreProcess, country = dataPreProcess$country)
 # Reorder columns
 dataPreProcess <- dataPreProcess %>% select(gbifID, scientificName, countryCode, country, everything())
 
-# 5 - Getting country names from valid coordinates
+# Getting country names from valid coordinates
 # This is an ENRICHMENT function because it improves the database by deriving country names
 # based on coordinates for records with missing country names.
 
@@ -139,16 +136,7 @@ dataPreProcess <- bdc_country_from_coordinates(
   country = "country"
 )
 
-# 6 - Standardizing country names and getting country code information
-# This is an ENRICHMENT function because the country names are standardized against
-# a list of country names in several languages retrieved from Wikipedia.
-
-#dataPreProcess <- bdc_country_standardized(
-#  data = dataPreProcess,
-#  country = "country"
-#)
-
-# 8 - Records outside a region of interest
+# Records outside a region of interest
 # This is a VALIDATION function because records outside one or multiple reference countries
 # (i.e., records in other countries) or at an odd distance from the coast
 # (e.g., in the ocean). This last step avoids flagging records close to country
@@ -173,7 +161,7 @@ dataPreProcess <- bdc_coordinates_country_inconsistent(
   dist = 0.1 # in decimal degrees (~5 km at the equator)
 )
 
-# 9 - Identifying records not geo-referenced but containing locality information
+# Identifying records not geo-referenced but containing locality information
 # ENRICHMENT. Coordinates can be derived from a detailed description of the locality associated with
 # records in a process called retrospective geo-referencing.
 xyFromLocality <- bdc_coordinates_from_locality(
@@ -192,7 +180,10 @@ dataPreProcess <- bdc_summary_col(data = dataPreProcess)
 pre_filtered_data <-
   dataPreProcess %>%
   dplyr::filter(.summary == TRUE) %>%
-  bdc_filter_out_flags(data = ., col_to_remove = "all")
+  bdc_filter_out_flags(data = ., col_to_remove = "all") ; rm(dataPreProcess)
+
+# Save 
+save_occurrence_data(taxonomy_cleaned, "1_bdc_PreProcess_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
 
 ## %######################################################%##
 #                                                          #
@@ -200,7 +191,7 @@ pre_filtered_data <-
 #                                                          #
 ## %######################################################%##
 
-##### 1) Clean and parse species names
+##### Clean and parse species names
 
 # In case a large database is being used with many species could be more efficient
 # use a vector with unique elements (i.e., species names)
@@ -229,7 +220,7 @@ check_taxonomy <- dplyr::left_join(pre_filtered_data, parse_names, by = "scienti
 # synonyms
 
 
-##### 2) Names standardization
+##### Names standardization
 # See the taxonomic database available until now in bdc in:
 # https://brunobrr.github.io/bdc/articles/taxonomy.html
 # In this case we will use GBIF as taxonomic authority
@@ -305,7 +296,7 @@ query_names <- bdc_query_names_taxadb(
 #query_names[query_names$original_search == "Peltophorum adnatum", "scientificName"] <- "Peltophorum dubium"
 #query_names[query_names$original_search == "Peltophorum berteroanum", "scientificName"] <- "Peltophorum dubium"
 
-##### 3) Merging results of accepted names with the original database
+##### Merging results of accepted names with the original database
 # Merging results of the taxonomy standardization process with the original database.
 # See bdc package tutorial how merging from bdc_query_names_taxadb output
 
@@ -321,7 +312,10 @@ check_taxonomy <- check_taxonomy %>%
   mutate(scientificName_updated = if_else(is.na(scientificName_updated), names_clean, scientificName_updated))
 
 # Remove columns with only NA values
-taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.)))
+taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.))) ; rm(check_taxonomy)
+
+# Save 
+save_occurrence_data(taxonomy_cleaned, "2_bdc_taxonomy_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
 
 ## %######################################################%##
 #                                                          #
@@ -329,7 +323,7 @@ taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.)))
 #                                                          #
 ## %######################################################%##
 
-# 1) Flagging common spatial issues
+# Flagging common spatial issues
 # This function identifies records with a coordinate precision below a specified number
 # of decimal places. For example, the precision of a coordinate with 1 decimal place is
 # 11.132 km at the equator, i.e., the scale of a large city.
@@ -353,7 +347,7 @@ check_space %>%
   dplyr::select(starts_with("decimal"))
 
 
-# 2) flag common spatial issues using functions of the package CoordinateCleaner.
+# flag common spatial issues using functions of the package CoordinateCleaner.
 #?clean_coordinates
 
 # the process of spatial cleaning is processed by species, therefor it is important
@@ -410,14 +404,17 @@ check_space$.summary %>% table()
 
 colSums(!dplyr::select(check_space, starts_with(".")))
 
-# 4) Filtering database
+# Filtering database
 space_cleaned <-
   check_space %>%
   dplyr::filter(.summary == TRUE) %>%
-  bdc_filter_out_flags(data = ., col_to_remove = "all")
+  bdc_filter_out_flags(data = ., col_to_remove = "all") ; rm(check_space)
 
 # Remove columns with only NA values
 space_cleaned <- space_cleaned %>% select_if(~ !all(is.na(.)))
+
+# Save 
+save_occurrence_data(space_cleaned, "3_bdc_space_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
 
 ## %######################################################%##
 #                                                          #
@@ -435,13 +432,13 @@ space_cleaned <- space_cleaned %>% select_if(~ !all(is.na(.)))
 #space_cleaned$year %>% range(., na.rm = T)
 
 
-# 1) Records lacking event date information
+# Records lacking event date information
 # VALIDATION. This  function flags records lacking event date information (e.g., empty or NA).
 
 #check_time <-
 #  bdc_eventDate_empty(data = space_cleaned, eventDate = "verbatimEventDate") %>% tibble()
 
-# 2) Records with out-of-range collecting year
+# Records with out-of-range collecting year
 # VALIDATION. This function identifies records with illegitimate or potentially imprecise # collecting years. The year provided can be out-of-range (e.g., in the future) or
 # collected before a specified year supplied by the user (e.g., 1950).
 check_time <-
@@ -449,7 +446,9 @@ check_time <-
     data = space_cleaned,
     eventDate = "year",
     year_threshold = 1950
-  ) ; rm(space_cleaned) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
+  )
+
+rm(space_cleaned) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
 
 
 # Report
@@ -466,4 +465,11 @@ time_cleaned <-
   check_time %>%
   dplyr::filter(.summary == TRUE) %>%
   bdc_filter_out_flags(data = ., col_to_remove = "all") %>%
-  dplyr::tibble()
+  dplyr::tibble() ; rm(check_time)
+
+
+# Save 
+save_occurrence_data(time_cleaned, "4_bdc_time_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
+
+
+

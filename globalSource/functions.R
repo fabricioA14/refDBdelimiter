@@ -76,16 +76,13 @@ remove_trailing_numbers <- function(name) {
 }
 
 
-# Function to save occurrence data in specified formats
+# Função para salvar dados de ocorrência nos formatos especificados
 save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojson", "gpkg", "kml", "csv")) {
-  # Define the output directory
+  # Definir o diretório de saída
   current_directory <- getwd()
   output_directory <- file.path(current_directory, "SHP")
-  if (!dir.exists(output_directory)) {
-    dir.create(output_directory)
-  }
   
-  # Define output file paths based on the desired formats
+  # Definir caminhos de saída com base nos formatos desejados
   output_paths <- list(
     shp = file.path(output_directory, paste0(base_filename, ".shp")),
     geojson = paste0(base_filename, ".geojson"),
@@ -94,18 +91,23 @@ save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojso
     csv = paste0(base_filename, ".csv")
   )
   
-  # Save in the specified formats
+  # Salvar nos formatos especificados
   if ("shp" %in% formats) {
-    st_write(data, output_paths$shp)
+    if (!dir.exists(output_directory)) {
+      dir.create(output_directory)
+    }
+    # Converter gbifID para character para evitar problemas de largura de campo
+    data$gbifID <- as.character(data$gbifID)
+    st_write(data, output_paths$shp, delete_layer = TRUE)
   }
   if ("geojson" %in% formats) {
-    st_write(data, output_paths$geojson)
+    st_write(data, output_paths$geojson, delete_layer = TRUE)
   }
   if ("gpkg" %in% formats) {
-    st_write(data, output_paths$gpkg)
+    st_write(data, output_paths$gpkg, delete_layer = TRUE)
   }
   if ("kml" %in% formats) {
-    st_write(data, output_paths$kml)
+    st_write(data, output_paths$kml, delete_layer = TRUE)
   }
   if ("csv" %in% formats) {
     output_csv <- st_drop_geometry(data)
