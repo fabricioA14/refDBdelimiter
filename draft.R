@@ -2,7 +2,7 @@
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth',
           'rnaturalearthdata', 'leaflet', 'mapedit', 'leaflet.extras2', 
           'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets', 
-          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc')
+          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','stringr','plotly')
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]

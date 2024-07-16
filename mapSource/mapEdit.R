@@ -7,10 +7,10 @@ scrollable_legend_css <- "
 "
 
 # Define a color palette for the species
-qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = data$taxa)
+qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = manual_curation$taxa)
 
 # Leaflet map
-map_within_sa <- leaflet(data) %>%
+map_within_sa <- leaflet(manual_curation) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
     lng = ~decimalLongitude, lat = ~decimalLatitude,

@@ -1,6 +1,16 @@
 
+scrollable_legend_css <- "
+.info.legend {
+  max-height: calc(100vh - 100px); /* Adjust the height as needed */
+  overflow-y: auto;
+}
+"
+
+# Define a color palette for the species
+qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = selected_occurrence_data$taxa)
+
 # Leaflet map
-map_within_sa <- leaflet(final_results_outside) %>%
+map_within_sa <- leaflet(selected_occurrence_data) %>%
   addProviderTiles(providers$Esri.WorldStreetMap) %>%
   addCircleMarkers(
     lng = ~decimalLongitude, lat = ~decimalLatitude,

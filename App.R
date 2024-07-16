@@ -1,0 +1,707 @@
+library(shiny)
+library(shinyjs)
+library(shinyFiles)
+library(data.table)
+library(dplyr)
+library(countrycode)
+library(plotly)
+library(sf)
+library(leaflet)
+library(htmlwidgets)
+library(RColorBrewer)
+library(tools)
+
+scrollable_legend_css <- "
+.info.legend {
+  max-height: calc(93vh - 93px); /* Adjust the height as needed */
+  overflow-y: auto;
+}
+"
+
+# Função para criar gráfico empilhado interativo
+create_stacked_bar <- function(data, taxonomic_level, title) {
+  data %>%
+    group_by(year, !!sym(taxonomic_level)) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
+    layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
+}
+
+# Definir UI
+ui <- fluidPage(
+  useShinyjs(),  # Incluir shinyjs
+  tags$head(
+    tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap"),
+    tags$style(HTML("
+      body, .container-fluid {
+        background-color: white;
+        color: black;
+        font-family: 'Comfortaa', sans-serif;
+        font-weight: bold;
+      }
+      .well {
+        background-color: white;
+        border-color: black;
+      }
+      .nav-tabs > li > a {
+        color: black;
+        font-family: 'Comfortaa', sans-serif;
+        font-weight: bold;
+      }
+      .nav-tabs > li > a:hover, .nav-tabs > li > a:focus, .nav-tabs > .active > a, .nav-tabs > .active > a:hover, .nav-tabs > .active > a:focus {
+        background-color: white;
+        color: black;
+        font-family: 'Comfortaa', sans-serif;
+        font-weight: bold;
+      }
+      h3, p {
+        font-family: 'Comfortaa', sans-serif;
+        font-weight: bold;
+      }
+      .title-panel {
+        text-align: center;
+        width: 100%;
+      }
+      .sidebar {
+        background-color: white;
+        border-color: black;
+        height: 90vh;
+        overflow-y: auto;
+      }
+      .btn-file, .btn-primary {
+        background-color: #337ab7;
+        color: white;
+        border-color: #2e6da4;
+      }
+      .btn-file.selected, #run.selected, #run_tax.selected, #run_space.selected, #run_time.selected, #run_map.selected {
+        background-color: #337ab7;
+        color: white;
+        border-color: #2e6da4;
+      }
+      .shiny-input-container {
+        margin-top: 15px;
+      }
+    ")),
+    tags$style(type = "text/css", "#map {height: calc(90vh - 20px) !important;}"),
+    tags$style(HTML(scrollable_legend_css))  # Add the custom CSS for scrollable legend
+  ),
+  
+  div(class = "title-panel", 
+      titlePanel(
+        tags$div(
+          "Data Cleaning Processes",
+          style = "display: inline-block; vertical-align: middle;"
+        )
+      )
+  ),
+  
+  sidebarLayout(
+    sidebarPanel(
+      tabsetPanel(id = "tabs",
+                  tabPanel("Pre-Treatment Process",
+                           shinyFilesButton("file1", "Choose CSV File", "Please select a file", multiple = FALSE, buttonType = "primary"),
+                           numericInput("nrows", "Number of rows to read:", value = Inf, min = 1),
+                           textInput("fields", "Columns to import (comma-separated):", 
+                                     value = "gbifID,kingdom,phylum,class,order,family,genus,species,scientificName,countryCode,stateProvince,locality,decimalLongitude,decimalLatitude,basisOfRecord,year"),
+                           selectInput("taxonomic_level_pre", "Select Taxonomic Level for Visualization:", 
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "family"),
+                           textInput("save_path_pre", "Save Path for Pre-Treatment:", "1_bdc_PreProcess_cleaned"),
+                           sliderInput("dist", "Distance for Inconsistent Coordinates (decimal degrees):",
+                                       min = 0.01, max = 1.0, value = 0.1, step = 0.01),
+                           checkboxInput("save_outputs", "Save Coordinates Output", TRUE),
+                           checkboxGroupInput("formats", "Select Output Formats:",
+                                              choices = list("shp" = "shp",
+                                                             "geojson" = "geojson",
+                                                             "gpkg" = "gpkg",
+                                                             "kml" = "kml",
+                                                             "csv" = "csv"),
+                                              selected = c("shp", "geojson", "gpkg", "kml", "csv")),
+                           actionButton("run", "Run Pre-Treatment", class = "btn-primary")
+                  ),
+                  tabPanel("Taxonomy Process",
+                           checkboxInput("replace_synonyms", "Replace synonyms by accepted names", TRUE),
+                           checkboxInput("suggest_names", "Suggest names for misspelled names", TRUE),
+                           sliderInput("suggestion_distance", "Distance between the searched and suggested names:", min = 0, max = 1, value = 0.9, step = 0.01),
+                           textInput("db", "Taxonomic Database:", value = "gbif"),
+                           textInput("rank_name", "Taxonomic Rank Name:", value = "Chordata"),
+                           textInput("rank", "Taxonomic Rank:", value = "Phylum"),
+                           selectInput("taxonomic_level_tax", "Select Taxonomic Level for Visualization:", 
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "family"),
+                           checkboxInput("parallel", "Use parallel processing?", FALSE),
+                           numericInput("ncores", "Number of cores:", value = 2, min = 1),
+                           checkboxInput("export_accepted", "Export accepted names?", FALSE),
+                           textInput("save_path_tax", "Save Path for Taxonomy:", "2_bdc_taxonomy_cleaned"),
+                           checkboxGroupInput("formats_tax", "Select Output Formats:",
+                                              choices = list("shp" = "shp",
+                                                             "geojson" = "geojson",
+                                                             "gpkg" = "gpkg",
+                                                             "kml" = "kml",
+                                                             "csv" = "csv"),
+                                              selected = c("shp", "geojson", "gpkg", "kml", "csv")),
+                           actionButton("run_tax", "Run Taxonomy Process", class = "btn-primary")
+                  ),
+                  tabPanel("Space Process",
+                           numericInput("ndec", "Number of decimals to be tested:", value = 3, min = 1),
+                           checkboxGroupInput("tests", "Select spatial tests:",
+                                              choices = list(
+                                                "capitals" = "capitals",
+                                                "centroids" = "centroids",
+                                                "duplicates" = "duplicates",
+                                                "equal" = "equal",
+                                                "gbif" = "gbif",
+                                                "institutions" = "institutions",
+                                                "outliers" = "outliers",
+                                                "zeros" = "zeros",
+                                                "urban" = "urban"
+                                              ),
+                                              selected = c("capitals", "centroids", "duplicates", "equal", "gbif", "institutions", "zeros")),
+                           numericInput("capitals_rad", "Radius for capitals (meters):", value = 3000, min = 0),
+                           numericInput("centroids_rad", "Radius for centroids (meters):", value = 10000, min = 0),
+                           selectInput("centroids_detail", "Detail level for centroids:", choices = c("both", "country", "province"), selected = "both"),
+                           numericInput("inst_rad", "Radius around biodiversity institutions coordinates (meters):", value = 100, min = 0),
+                           numericInput("outliers_mtp", "Multiplicative factor for outliers:", value = 5, min = 0),
+                           numericInput("outliers_td", "Minimum distance of a record to all other records of a species to be identified as outlier (Km):", value = 1000, min = 0),
+                           numericInput("outliers_size", "Minimum number of records in a dataset to run the taxon-specific outlier test:", value = 10, min = 0),
+                           numericInput("range_rad", "Range radius:", value = 0, min = 0),
+                           numericInput("zeros_rad", "Radius for zeros (decimal degrees):", value = 0.5, min = 0),
+                           selectInput("taxonomic_level_space", "Select Taxonomic Level for Visualization:", 
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "family"),
+                           textInput("save_path_space", "Save Path for Space:", "3_bdc_space_cleaned"),
+                           checkboxGroupInput("formats_space", "Select Output Formats:",
+                                              choices = list("shp" = "shp",
+                                                             "geojson" = "geojson",
+                                                             "gpkg" = "gpkg",
+                                                             "kml" = "kml",
+                                                             "csv" = "csv"),
+                                              selected = c("shp", "geojson", "gpkg", "kml", "csv")),
+                           actionButton("run_space", "Run Space Process", class = "btn-primary")
+                  ),
+                  tabPanel("Time Process",
+                           numericInput("year_threshold", "Year threshold:", value = 1950, min = 0),
+                           selectInput("taxonomic_level_time", "Select Taxonomic Level for Visualization:", 
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "family"),
+                           textInput("save_path_time", "Save Path for Time:", "4_bdc_time_cleaned"),
+                           checkboxGroupInput("formats_time", "Select Output Formats:",
+                                              choices = list("shp" = "shp",
+                                                             "geojson" = "geojson",
+                                                             "gpkg" = "gpkg",
+                                                             "kml" = "kml",
+                                                             "csv" = "csv"),
+                                              selected = c("shp", "geojson", "gpkg", "kml", "csv")),
+                           actionButton("run_time", "Run Time Process", class = "btn-primary")
+                  ),
+                  tabPanel("Map Visualization",
+                           actionButton("run_map", "Generate Map", class = "btn-primary"),
+                           leafletOutput("map"),
+                           verbatimTextOutput("searchedValuesOutput")
+                  )
+      )
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Pre-Treatment Output",
+                 plotlyOutput("pre_input_plot"),
+                 plotlyOutput("pre_output_plot")
+        ),
+        tabPanel("Taxonomy Output",
+                 plotlyOutput("tax_input_plot"),
+                 plotlyOutput("tax_output_plot")
+        ),
+        tabPanel("Space Output",
+                 plotlyOutput("space_input_plot"),
+                 plotlyOutput("space_output_plot")
+        ),
+        tabPanel("Time Output",
+                 plotlyOutput("time_input_plot"),
+                 plotlyOutput("time_output_plot")
+        ),
+        tabPanel("Map Visualization",
+                 leafletOutput("map")
+        )
+      )
+    )
+  )
+)
+
+# Definir a lógica do servidor
+server <- function(input, output, session) {
+  # Variáveis reativas para armazenar dados processados
+  pre_filtered_data <- reactiveVal(NULL)
+  taxonomy_cleaned <- reactiveVal(NULL)
+  space_cleaned <- reactiveVal(NULL)
+  time_cleaned <- reactiveVal(NULL)
+  
+  # Pre-Treatment Process
+  shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
+  
+  file_path <- reactiveVal(NULL)
+  
+  observeEvent(input$file1, {
+    if (!is.null(input$file1)) {
+      file_selected <- parseFilePaths(c(wd = getwd()), input$file1)
+      file_path(as.character(file_selected$datapath[1]))
+      runjs("$('#file1').addClass('selected');")
+    }
+  })
+  
+  observeEvent(input$run, {
+    if (is.null(file_path()) || file_path() == "")
+      return(NULL)
+    
+    runjs("$('#run').addClass('selected');")
+    
+    nrows <- if (input$nrows == Inf) Inf else input$nrows
+    fields <- strsplit(input$fields, ",")[[1]]
+    
+    data <- fread(file_path(), select = fields, nrows = nrows)
+    
+    dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
+      bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
+      bdc_coordinates_outOfRange(lat = "decimalLatitude", lon = "decimalLongitude") %>%
+      bdc_basisOfRecords_notStandard(basisOfRecord = "basisOfRecord", names_to_keep = "all")
+    
+    unique_country_codes <- unique(dataPreProcess$countryCode)
+    country_names <- countrycode(unique_country_codes, origin = "iso2c", destination = "country.name")
+    nome_map <- setNames(country_names, unique_country_codes)
+    
+    dataPreProcess <- dataPreProcess %>%
+      mutate(country = nome_map[countryCode]) %>%
+      select(gbifID, scientificName, countryCode, country, everything()) %>%
+      bdc_country_from_coordinates(lat = "decimalLatitude", lon = "decimalLongitude", country = "country")
+    
+    cntr <- dataPreProcess$country %>%
+      unique() %>%
+      na.omit() %>%
+      c()
+    
+    dataPreProcess <- bdc_coordinates_country_inconsistent(
+      data = dataPreProcess,
+      country = "country",
+      country_name = cntr,
+      lon = "decimalLongitude",
+      lat = "decimalLatitude",
+      dist = input$dist
+    )
+    
+    xyFromLocality <- bdc_coordinates_from_locality(
+      data = dataPreProcess,
+      locality = "locality",
+      lon = "decimalLongitude",
+      lat = "decimalLatitude",
+      save_outputs = input$save_outputs
+    )
+    
+    xyFromLocality[, c("country", "stateProvince", "locality")]
+    
+    dataPreProcess <- bdc_summary_col(data = dataPreProcess)
+    
+    pre_filtered <- dataPreProcess %>%
+      dplyr::filter(.summary == TRUE) %>%
+      bdc_filter_out_flags(data = ., col_to_remove = "all")
+    
+    pre_filtered_data(pre_filtered)  # Atualiza a variável reativa
+    
+    save_occurrence_data(pre_filtered, input$save_path_pre, formats = input$formats)
+    
+    output$pre_input_plot <- renderPlotly({
+      create_stacked_bar(data, input$taxonomic_level_pre, "Raw Dataset by Year and Taxonomic Level")
+    })
+    
+    output$pre_output_plot <- renderPlotly({
+      create_stacked_bar(pre_filtered, input$taxonomic_level_pre, "Pre-Treated Dataset by Year and Taxonomic Level")
+    })
+  })
+  
+  # Taxonomy Process
+  observeEvent(input$run_tax, {
+    pre_filtered <- pre_filtered_data()
+    if (is.null(pre_filtered))
+      return(NULL)
+    
+    runjs("$('#run_tax').addClass('selected');")
+    
+    rank_lower <- tolower(input$rank)
+    
+    parse_names <- bdc_clean_names(
+      sci_names = unique(pre_filtered$scientificName),
+      save_outputs = FALSE
+    )
+    
+    check_taxonomy <- dplyr::left_join(pre_filtered, parse_names, by = "scientificName")
+    
+    spl <- unique(check_taxonomy$names_clean) %>% sort()
+    
+    query_names <- bdc_query_names_taxadb(
+      sci_name = spl,
+      replace_synonyms = input$replace_synonyms,
+      suggest_names = input$suggest_names,
+      suggestion_distance = input$suggestion_distance,
+      db = input$db,
+      rank_name = input$rank_name,
+      rank = rank_lower,
+      parallel = input$parallel,
+      ncores = input$ncores,
+      export_accepted = input$export_accepted
+    )
+    
+    nome_map <- setNames(query_names$scientificName, query_names$original_search)
+    
+    check_taxonomy$scientificName_updated <- nome_map[check_taxonomy$names_clean]
+    
+    check_taxonomy <- check_taxonomy %>%
+      mutate(scientificName_updated = if_else(is.na(scientificName_updated), names_clean, scientificName_updated))
+    
+    taxonomy_cleaned_data <- check_taxonomy %>% select_if(~ !all(is.na(.)))
+    
+    taxonomy_cleaned(taxonomy_cleaned_data)  # Atualiza a variável reativa
+    
+    save_occurrence_data(taxonomy_cleaned_data, input$save_path_tax, formats = input$formats_tax)
+    
+    output$tax_input_plot <- renderPlotly({
+      create_stacked_bar(pre_filtered, input$taxonomic_level_tax, "Pre-Treated Dataset by Year and Taxonomic Level")
+    })
+    
+    output$tax_output_plot <- renderPlotly({
+      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_tax, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level")
+    })
+  })
+  
+  # Space Process
+  observeEvent(input$run_space, {
+    taxonomy_cleaned_data <- taxonomy_cleaned()
+    if (is.null(taxonomy_cleaned_data))
+      return(NULL)
+    
+    runjs("$('#run_space').addClass('selected');")
+    
+    check_space <- bdc_coordinates_precision(
+      data = taxonomy_cleaned_data,
+      lon = "decimalLongitude",
+      lat = "decimalLatitude",
+      ndec = input$ndec
+    )
+    
+    check_space <- CoordinateCleaner::clean_coordinates(
+      x = check_space,
+      lon = "decimalLongitude",
+      lat = "decimalLatitude",
+      species = "scientificName_updated",
+      tests = input$tests,
+      capitals_rad = input$capitals_rad,
+      centroids_rad = input$centroids_rad,
+      centroids_detail = input$centroids_detail,
+      inst_rad = input$inst_rad,
+      outliers_mtp = input$outliers_mtp,
+      outliers_td = input$outliers_td,
+      outliers_size = input$outliers_size,
+      range_rad = input$range_rad,
+      zeros_rad = input$zeros_rad,
+      value = "spatialvalid"
+    ) %>%
+      dplyr::tibble()
+    
+    check_space <- bdc_summary_col(data = check_space)
+    
+    space_cleaned_data <- check_space %>%
+      dplyr::filter(.summary == TRUE) %>%
+      bdc_filter_out_flags(data = ., col_to_remove = "all")
+    
+    space_cleaned(space_cleaned_data)  # Atualiza a variável reativa
+    
+    save_occurrence_data(space_cleaned_data, input$save_path_space, formats = input$formats_space)
+    
+    output$space_input_plot <- renderPlotly({
+      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_space, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level")
+    })
+    
+    output$space_output_plot <- renderPlotly({
+      create_stacked_bar(space_cleaned_data, input$taxonomic_level_space, "Spatially-Cleaned Dataset by Year and Taxonomic Level")
+    })
+  })
+  
+  # Time Process
+  observeEvent(input$run_time, {
+    space_cleaned_data <- space_cleaned()
+    if (is.null(space_cleaned_data))
+      return(NULL)
+    
+    runjs("$('#run_time').addClass('selected');")
+    
+    year_threshold <- input$year_threshold
+    save_path_time <- input$save_path_time
+    formats_time <- input$formats_time
+    
+    check_time <- bdc_year_outOfRange(
+      data = space_cleaned_data,
+      eventDate = "year",
+      year_threshold = year_threshold
+    )
+    
+    check_time <- bdc_summary_col(data = check_time)
+    
+    time_cleaned_data <- check_time %>%
+      dplyr::filter(.summary == TRUE) %>%
+      bdc_filter_out_flags(data = ., col_to_remove = "all") %>%
+      dplyr::tibble() 
+    
+    time_cleaned(time_cleaned_data)  # Atualiza a variável reativa
+    
+    save_occurrence_data(time_cleaned_data, input$save_path_time, formats = input$formats_time)
+    
+    output$time_input_plot <- renderPlotly({
+      create_stacked_bar(space_cleaned_data, input$taxonomic_level_time, "Spatially-Cleaned Dataset by Year and Taxonomic Level")
+    })
+    
+    output$time_output_plot <- renderPlotly({
+      create_stacked_bar(time_cleaned_data, input$taxonomic_level_time, "Time-Cleaned Dataset by Year and Taxonomic Level")
+    })
+  })
+  
+  # Map Visualization
+  observeEvent(input$run_map, {
+    runjs("$('#run_map').addClass('selected');")
+    time_cleaned_data <- time_cleaned()
+    if (is.null(time_cleaned_data)) {
+      showNotification("No data available for mapping. Please run the previous processes first.", type = "error")
+      return(NULL)
+    }
+    
+    visualization <- time_cleaned_data %>%
+      mutate(identification_level = case_when(
+        !is.na(species) & str_trim(species) != "" ~ "species",
+        !is.na(genus) & str_trim(genus) != "" ~ "genus",
+        !is.na(family) & str_trim(family) != "" ~ "family",
+        !is.na(order) & str_trim(order) != "" ~ "order",
+        !is.na(class) & str_trim(class) != "" ~ "class",
+        !is.na(phylum) & str_trim(phylum) != "" ~ "phylum",
+        !is.na(kingdom) & str_trim(kingdom) != "" ~ "kingdom",
+        TRUE ~ "unknown"
+      ))
+    
+    visualization <- visualization %>% rename(taxa = scientificName_updated)
+    
+    # Convert data to sf
+    sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+    
+    # Add WKT column for geometry comparison
+    sf_data$wkt <- st_as_text(sf_data$geometry)
+    #excluded_occurrence_data$wkt <- st_as_text(excluded_occurrence_data$geometry)
+    
+    # Perform anti-join to find unique rows in sf_data
+    #unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(excluded_occurrence_data), 
+    #                         by = c("gbifID", "species", "genus", "family", "order", "class", "phylum", "kingdom", "country", "wkt"))
+    
+    # Convert back to sf and remove WKT column
+    selected_occurrence_data <- st_as_sf(sf_data, wkt = "wkt", crs = st_crs(sf_data)) %>% select(-wkt)
+    # Separate the geometry coordinates into latitude and longitude columns
+    coords <- sf::st_coordinates(selected_occurrence_data)
+    selected_occurrence_data$decimalLongitude <- coords[, "X"]
+    selected_occurrence_data$decimalLatitude <- coords[, "Y"]
+    
+    scrollable_legend_css <- "
+    .info.legend {
+      max-height: calc(100vh - 100px); /* Adjust the height as needed */
+      overflow-y: auto;
+    }
+    "
+    
+    # Define a color palette for the species
+    qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = selected_occurrence_data$taxa)
+    
+    # Leaflet map
+    map_within_sa <- leaflet(selected_occurrence_data) %>%
+      addProviderTiles(providers$Esri.WorldStreetMap) %>%
+      addCircleMarkers(
+        lng = ~decimalLongitude, lat = ~decimalLatitude,
+        radius = 3,
+        color = ~qual_palette(taxa),
+        label = ~taxa,
+        popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
+        group = ~paste(taxa, genus, family, order, class, phylum, identification_level, sep = ","),  # Include identification level in group
+        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, order, class, phylum, identification_level)
+      ) %>%
+      addLegend(
+        position = "bottomright",
+        pal = qual_palette,
+        values = ~taxa,
+        title = "Species",
+        opacity = 1,
+        labFormat = function(type, cuts, p) {
+          sapply(cuts, function(cut) {
+            paste0("<span style='font-style:italic;'>", htmltools::htmlEscape(cut), "</span>")
+          })
+        }
+      ) %>%
+      htmlwidgets::onRender("
+        function(el, x) {
+          var myMap = this;
+          var originalLayers = {};
+          var uniqueTaxa = new Set(); // Use a Set to store unique taxa
+    
+          myMap.eachLayer(function(layer) {
+            if (layer.options && layer.options.group) {
+              originalLayers[layer.options.layerId] = layer;
+              uniqueTaxa.add(layer.options.group); // Add the unique taxa
+            }
+          });
+    
+          // Select all unique layers by default
+          var selectedTaxa = Array.from(uniqueTaxa);
+          selectedTaxa.forEach(function(taxon) {
+            Object.values(originalLayers).forEach(function(layer) {
+              if (layer.options.group === taxon) {
+                myMap.addLayer(layer);
+              }
+            });
+          });
+    
+          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+    
+          var searchControl = L.control({position: 'bottomleft'});
+    
+          searchControl.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = '<h4>Search Taxa</h4>';
+            div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
+            div.innerHTML += '<button id=\"search-button\">Search</button>';
+    
+            div.querySelector('#search-box').onfocus = function() {
+              myMap.dragging.disable();
+              myMap.touchZoom.disable();
+              myMap.doubleClickZoom.disable();
+              myMap.scrollWheelZoom.disable();
+            };
+    
+            div.querySelector('#search-box').onblur = function() {
+              myMap.dragging.enable();
+              myMap.touchZoom.enable();
+              myMap.doubleClickZoom.enable();
+              myMap.scrollWheelZoom.enable();
+            };
+    
+            div.querySelector('#search-button').onclick = function() {
+              var searchValue = document.getElementById('search-box').value;
+              var taxaArray = searchValue.split(',').map(function(taxon) {
+                return taxon.trim();
+              });
+    
+              Object.values(originalLayers).forEach(function(layer) {
+                myMap.removeLayer(layer);
+              });
+    
+              if (searchValue === 'all' || searchValue === '') {
+                // Select all unique layers if search value is 'all' or empty
+                selectedTaxa = Array.from(uniqueTaxa);
+                selectedTaxa.forEach(function(taxon) {
+                  Object.values(originalLayers).forEach(function(layer) {
+                    if (layer.options.group === taxon) {
+                      myMap.addLayer(layer);
+                    }
+                  });
+                });
+              } else {
+                var foundLayers = new Set();
+                taxaArray.forEach(function(taxon) {
+                  Object.values(originalLayers).forEach(function(layer) {
+                    var layerGroup = layer.options.group;
+                    var isGenusSearch = taxon.endsWith(' (genus)');
+                    var isFamilySearch = taxon.endsWith(' (family)');
+                    var isOrderSearch = taxon.endsWith(' (order)');
+                    var isClassSearch = taxon.endsWith(' (class)');
+                    var isPhylumSearch = taxon.endsWith(' (phylum)');
+                    var taxonWithoutSuffix = taxon.replace(' (genus)', '').replace(' (family)', '').replace(' (order)', '').replace(' (class)', '').replace(' (phylum)', '');
+    
+                    if (isGenusSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isFamilySearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isOrderSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('order')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isClassSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('class')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isPhylumSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('phylum')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else {
+                      if (layerGroup.includes(taxonWithoutSuffix)) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    }
+                  });
+                });
+                selectedTaxa = Array.from(foundLayers);
+              }
+    
+              Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+              Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
+            };
+    
+            return div;
+          };
+    
+          searchControl.addTo(myMap);
+    
+          // JavaScript to dynamically adjust the legend width
+          var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
+          var maxWidth = 0;
+    
+          legendItems.forEach(function(item) {
+            var width = item.clientWidth;
+            if (width > maxWidth) {
+              maxWidth = width;
+            }
+          });
+    
+          var legend = document.querySelector('.leaflet-legend');
+          if (legend) {
+            legend.style.width = (maxWidth + 50) + 'px'; // Add some padding
+          }
+        }
+      ")
+    
+    output$map <- renderLeaflet(map_within_sa)
+    
+  })
+}
+
+shinyApp(ui, server)
