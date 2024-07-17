@@ -3,10 +3,9 @@
 source("globalSource/functions.R")
 
 # List of packages to ensure are installed and loaded
-pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth',
-          'rnaturalearthdata', 'leaflet', 'mapedit', 'leaflet.extras2', 
-          'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets', 
-          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools')
+pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
+          'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
+          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools','countrycode','data.table','stringr')
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]

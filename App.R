@@ -1,15 +1,20 @@
-library(shiny)
-library(shinyjs)
-library(shinyFiles)
-library(data.table)
-library(dplyr)
-library(countrycode)
-library(plotly)
-library(sf)
-library(leaflet)
-library(htmlwidgets)
-library(RColorBrewer)
-library(tools)
+
+# List of packages to ensure are installed and loaded
+pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
+          'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
+          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools','countrycode','data.table','stringr',
+          'plotly','shinyFiles','shinyjs')
+
+# Check for packages that are not installed
+vars <- pack[!(pack %in% installed.packages()[, "Package"])]
+
+# Install any packages that are not already installed
+if (length(vars) != 0) {
+  install.packages(vars, dependencies = TRUE)
+}
+
+# Load all the packages
+sapply(pack, require, character.only = TRUE)
 
 scrollable_legend_css <- "
 .info.legend {
@@ -25,6 +30,25 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     summarise(count = n(), .groups = 'drop') %>%
     plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
+}
+
+# Função para salvar dados de ocorrência
+save_occurrence_data <- function(data, path, formats) {
+  if ("csv" %in% formats) {
+    fwrite(data, paste0(path, ".csv"))
+  }
+  if ("shp" %in% formats) {
+    st_write(st_as_sf(data), paste0(path, ".shp"))
+  }
+  if ("geojson" %in% formats) {
+    st_write(st_as_sf(data), paste0(path, ".geojson"))
+  }
+  if ("gpkg" %in% formats) {
+    st_write(st_as_sf(data), paste0(path, ".gpkg"))
+  }
+  if ("kml" %in% formats) {
+    st_write(st_as_sf(data), paste0(path, ".kml"))
+  }
 }
 
 # Definir UI
@@ -73,7 +97,7 @@ ui <- fluidPage(
         color: white;
         border-color: #2e6da4;
       }
-      .btn-file.selected, #run.selected, #run_tax.selected, #run_space.selected, #run_time.selected, #run_map.selected {
+      .btn-file.selected, #run.selected, #run_tax.selected, #run_space.selected, #run_time.selected, #run_map.selected, #run_edit_map.selected, #save_data.selected {
         background-color: #337ab7;
         color: white;
         border-color: #2e6da4;
@@ -83,6 +107,7 @@ ui <- fluidPage(
       }
     ")),
     tags$style(type = "text/css", "#map {height: calc(90vh - 20px) !important;}"),
+    tags$style(type = "text/css", "#edit_map {height: calc(90vh - 20px) !important;}"),
     tags$style(HTML(scrollable_legend_css))  # Add the custom CSS for scrollable legend
   ),
   
@@ -218,6 +243,25 @@ ui <- fluidPage(
                            actionButton("run_map", "Generate Map", class = "btn-primary"),
                            leafletOutput("map"),
                            verbatimTextOutput("searchedValuesOutput")
+                  ),
+                  tabPanel("Edit Map",
+                           actionButton("run_edit_map", "Generate Edit Map", class = "btn-primary"),
+                           leafletOutput("edit_map"),
+                           verbatimTextOutput("searchedValuesOutput_edit")
+                  ),
+                  tabPanel("Save Data",
+                           radioButtons("save_option", "Save Data:",
+                                        choices = c("selected_occurrence_data", "excluded_occurrence_data", "both")),
+                           textInput("save_path_selected", "Save Path for Selected Data:", "selected_data"),
+                           textInput("save_path_excluded", "Save Path for Excluded Data:", "excluded_data"),
+                           checkboxGroupInput("formats_edit", "Select Output Formats:",
+                                              choices = list("shp" = "shp",
+                                                             "geojson" = "geojson",
+                                                             "gpkg" = "gpkg",
+                                                             "kml" = "kml",
+                                                             "csv" = "csv"),
+                                              selected = c("shp", "geojson", "gpkg", "kml", "csv")),
+                           actionButton("save_data", "Save Data", class = "btn-primary")
                   )
       )
     ),
@@ -242,6 +286,9 @@ ui <- fluidPage(
         ),
         tabPanel("Map Visualization",
                  leafletOutput("map")
+        ),
+        tabPanel("Edit Map Output",
+                 leafletOutput("edit_map")
         )
       )
     )
@@ -255,6 +302,9 @@ server <- function(input, output, session) {
   taxonomy_cleaned <- reactiveVal(NULL)
   space_cleaned <- reactiveVal(NULL)
   time_cleaned <- reactiveVal(NULL)
+  selected_occurrence_data <- reactiveVal(NULL)
+  excluded_occurrence_data <- reactiveVal(NULL)
+  drawn_features <- reactiveVal(NULL)  # Variável reativa para armazenar features desenhadas
   
   # Pre-Treatment Process
   shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
@@ -337,6 +387,9 @@ server <- function(input, output, session) {
     })
   })
   
+  rm(data, dataPreProcess, xyFromLocality)
+  gc()
+  
   # Taxonomy Process
   observeEvent(input$run_tax, {
     pre_filtered <- pre_filtered_data()
@@ -353,6 +406,9 @@ server <- function(input, output, session) {
     )
     
     check_taxonomy <- dplyr::left_join(pre_filtered, parse_names, by = "scientificName")
+    
+    # Remover objetos intermediários usados no Pre-Treatment Process
+    #rm(data, dataPreProcess, xyFromLocality, nome_map, cntr)
     
     spl <- unique(check_taxonomy$names_clean) %>% sort()
     
@@ -390,6 +446,9 @@ server <- function(input, output, session) {
       create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_tax, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level")
     })
   })
+  
+  rm(pre_filtered)
+  gc()
   
   # Space Process
   observeEvent(input$run_space, {
@@ -444,6 +503,9 @@ server <- function(input, output, session) {
     })
   })
   
+  rm(taxonomy_cleaned_data)
+  gc()
+  
   # Time Process
   observeEvent(input$run_time, {
     space_cleaned_data <- space_cleaned()
@@ -483,6 +545,10 @@ server <- function(input, output, session) {
   })
   
   # Map Visualization
+  
+  rm(space_cleaned_data)
+  gc()
+  
   observeEvent(input$run_map, {
     runjs("$('#run_map').addClass('selected');")
     time_cleaned_data <- time_cleaned()
@@ -522,13 +588,6 @@ server <- function(input, output, session) {
     coords <- sf::st_coordinates(selected_occurrence_data)
     selected_occurrence_data$decimalLongitude <- coords[, "X"]
     selected_occurrence_data$decimalLatitude <- coords[, "Y"]
-    
-    scrollable_legend_css <- "
-    .info.legend {
-      max-height: calc(100vh - 100px); /* Adjust the height as needed */
-      overflow-y: auto;
-    }
-    "
     
     # Define a color palette for the species
     qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = selected_occurrence_data$taxa)
@@ -590,14 +649,16 @@ server <- function(input, output, session) {
             div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
             div.innerHTML += '<button id=\"search-button\">Search</button>';
     
-            div.querySelector('#search-box').onfocus = function() {
+            var searchBox = div.querySelector('#search-box');
+    
+            searchBox.onfocus = function() {
               myMap.dragging.disable();
               myMap.touchZoom.disable();
               myMap.doubleClickZoom.disable();
               myMap.scrollWheelZoom.disable();
             };
     
-            div.querySelector('#search-box').onblur = function() {
+            searchBox.onblur = function() {
               myMap.dragging.enable();
               myMap.touchZoom.enable();
               myMap.doubleClickZoom.enable();
@@ -605,7 +666,7 @@ server <- function(input, output, session) {
             };
     
             div.querySelector('#search-button').onclick = function() {
-              var searchValue = document.getElementById('search-box').value;
+              var searchValue = searchBox.value;
               var taxaArray = searchValue.split(',').map(function(taxon) {
                 return taxon.trim();
               });
@@ -674,12 +735,34 @@ server <- function(input, output, session) {
     
               Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
               Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
+    
+              // Use requestAnimationFrame for setting the cursor at the end
+              requestAnimationFrame(function() {
+                searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+                searchBox.scrollLeft = searchBox.scrollWidth;
+              });
             };
     
             return div;
           };
     
           searchControl.addTo(myMap);
+    
+          myMap.on('draw:created', function(e) {
+            if (selectedTaxa.length > 0) {
+              var layer = e.layer;
+              var layerType = e.layerType;
+              Shiny.setInputValue('drawn_feature', {
+                type: layerType,
+                layer: layer.toGeoJSON(),
+                taxa: selectedTaxa
+              });
+              
+              // Atualiza a variável reativa com as features desenhadas
+              Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
+              drawn_features(layer.toGeoJSON());
+            }
+          });
     
           // JavaScript to dynamically adjust the legend width
           var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
@@ -700,8 +783,358 @@ server <- function(input, output, session) {
       ")
     
     output$map <- renderLeaflet(map_within_sa)
+  })
+  
+  # Edit Map Process
+  observeEvent(input$run_edit_map, {
+    runjs("$('#run_edit_map').addClass('selected');")
+    time_cleaned_data <- time_cleaned()
+    if (is.null(time_cleaned_data)) {
+      showNotification("No data available for mapping. Please run the previous processes first.", type = "error")
+      return(NULL)
+    }
     
+    visualization <- time_cleaned_data %>%
+      mutate(identification_level = case_when(
+        !is.na(species) & str_trim(species) != "" ~ "species",
+        !is.na(genus) & str_trim(genus) != "" ~ "genus",
+        !is.na(family) & str_trim(family) != "" ~ "family",
+        !is.na(order) & str_trim(order) != "" ~ "order",
+        !is.na(class) & str_trim(class) != "" ~ "class",
+        !is.na(phylum) & str_trim(phylum) != "" ~ "phylum",
+        !is.na(kingdom) & str_trim(kingdom) != "" ~ "kingdom",
+        TRUE ~ "unknown"
+      ))
+    
+    visualization <- visualization %>% rename(taxa = scientificName_updated)
+    
+    # Convert data to sf
+    sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+    
+    # Define a color palette for the species
+    qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = visualization$taxa)
+    
+    # Leaflet map with drawing functionality
+    map_within_sa_edit <- leaflet(visualization) %>%
+      addProviderTiles(providers$Esri.WorldStreetMap) %>%
+      addCircleMarkers(
+        lng = ~decimalLongitude, lat = ~decimalLatitude,
+        radius = 3,
+        color = ~qual_palette(taxa),
+        label = ~taxa,
+        popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
+        group = ~paste(taxa, genus, family, order, class, phylum, identification_level, sep = ","),  # Include identification level in group
+        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, order, class, phylum, identification_level)
+      ) %>%
+      addLegend(
+        position = "bottomright",
+        pal = qual_palette,
+        values = ~taxa,
+        title = "Species",
+        opacity = 1,
+        labFormat = function(type, cuts, p) {
+          sapply(cuts, function(cut) {
+            paste0("<span style='font-style:italic;'>", htmltools::htmlEscape(cut), "</span>")
+          })
+        }
+      ) %>%
+      addDrawToolbar(
+        targetGroup = 'drawn',
+        editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()),
+        polylineOptions = FALSE  # Excludes the draw a line functionality
+      ) %>%
+      htmlwidgets::onRender("
+        function(el, x) {
+          var myMap = this;
+          var originalLayers = {};
+          var uniqueTaxa = new Set(); // Use a Set to store unique taxa
+    
+          myMap.eachLayer(function(layer) {
+            if (layer.options && layer.options.group) {
+              originalLayers[layer.options.layerId] = layer;
+              uniqueTaxa.add(layer.options.group); // Add the unique taxa
+            }
+          });
+    
+          // Select all unique layers by default
+          var selectedTaxa = Array.from(uniqueTaxa);
+          selectedTaxa.forEach(function(taxon) {
+            Object.values(originalLayers).forEach(function(layer) {
+              if (layer.options.group === taxon) {
+                myMap.addLayer(layer);
+              }
+            });
+          });
+    
+          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+    
+          var searchControl = L.control({position: 'bottomleft'});
+    
+          searchControl.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = '<h4>Search Taxa</h4>';
+            div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
+            div.innerHTML += '<button id=\"search-button\">Search</button>';
+    
+            var searchBox = div.querySelector('#search-box');
+    
+            searchBox.onfocus = function() {
+              myMap.dragging.disable();
+              myMap.touchZoom.disable();
+              myMap.doubleClickZoom.disable();
+              myMap.scrollWheelZoom.disable();
+            };
+    
+            searchBox.onblur = function() {
+              myMap.dragging.enable();
+              myMap.touchZoom.enable();
+              myMap.doubleClickZoom.enable();
+              myMap.scrollWheelZoom.enable();
+            };
+    
+            div.querySelector('#search-button').onclick = function() {
+              var searchValue = searchBox.value;
+              var taxaArray = searchValue.split(',').map(function(taxon) {
+                return taxon.trim();
+              });
+    
+              Object.values(originalLayers).forEach(function(layer) {
+                myMap.removeLayer(layer);
+              });
+    
+              if (searchValue === 'all' || searchValue === '') {
+                // Select all unique layers if search value is 'all' or empty
+                selectedTaxa = Array.from(uniqueTaxa);
+                selectedTaxa.forEach(function(taxon) {
+                  Object.values(originalLayers).forEach(function(layer) {
+                    if (layer.options.group === taxon) {
+                      myMap.addLayer(layer);
+                    }
+                  });
+                });
+              } else {
+                var foundLayers = new Set();
+                taxaArray.forEach(function(taxon) {
+                  Object.values(originalLayers).forEach(function(layer) {
+                    var layerGroup = layer.options.group;
+                    var isGenusSearch = taxon.endsWith(' (genus)');
+                    var isFamilySearch = taxon.endsWith(' (family)');
+                    var isOrderSearch = taxon.endsWith(' (order)');
+                    var isClassSearch = taxon.endsWith(' (class)');
+                    var isPhylumSearch = taxon.endsWith(' (phylum)');
+                    var taxonWithoutSuffix = taxon.replace(' (genus)', '').replace(' (family)', '').replace(' (order)', '').replace(' (class)', '').replace(' (phylum)', '');
+    
+                    if (isGenusSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isFamilySearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isOrderSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('order')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isClassSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('class')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else if (isPhylumSearch) {
+                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('phylum')) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    } else {
+                      if (layerGroup.includes(taxonWithoutSuffix)) {
+                        myMap.addLayer(layer);
+                        foundLayers.add(layer.options.group);
+                      }
+                    }
+                  });
+                });
+                selectedTaxa = Array.from(foundLayers);
+              }
+    
+              Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+              Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
+    
+              // Use requestAnimationFrame for setting the cursor at the end
+              requestAnimationFrame(function() {
+                searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+                searchBox.scrollLeft = searchBox.scrollWidth;
+              });
+            };
+    
+            return div;
+          };
+    
+          searchControl.addTo(myMap);
+    
+          myMap.on('draw:created', function(e) {
+            if (selectedTaxa.length > 0) {
+              var layer = e.layer;
+              var layerType = e.layerType;
+              Shiny.setInputValue('drawn_feature', {
+                type: layerType,
+                layer: layer.toGeoJSON(),
+                taxa: selectedTaxa
+              });
+              
+              // Atualiza a variável reativa com as features desenhadas
+              Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
+              drawn_features(layer.toGeoJSON());
+            }
+          });
+    
+          // JavaScript to dynamically adjust the legend width
+          var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
+          var maxWidth = 0;
+    
+          legendItems.forEach(function(item) {
+            var width = item.clientWidth;
+            if (width > maxWidth) {
+              maxWidth = width;
+            }
+          });
+    
+          var legend = document.querySelector('.leaflet-legend');
+          if (legend) {
+            legend.style.width = (maxWidth + 50) + 'px'; // Add some padding
+          }
+        }
+      ")
+    
+    output$edit_map <- renderLeaflet(map_within_sa_edit)
+  })
+  
+  # Save Data Process
+  observeEvent(input$save_data, {
+    runjs("$('#save_data').addClass('selected');")
+    save_option <- input$save_option
+    
+    # Inserir a lógica do input do Save Data aqui
+    time_cleaned_data <- time_cleaned()
+    if (is.null(time_cleaned_data)) {
+      showNotification("No data available for mapping. Please run the previous processes first.", type = "error")
+      return(NULL)
+    }
+    
+    visualization <- time_cleaned_data %>%
+      mutate(identification_level = case_when(
+        !is.na(species) & str_trim(species) != "" ~ "species",
+        !is.na(genus) & str_trim(genus) != "" ~ "genus",
+        !is.na(family) & str_trim(family) != "" ~ "family",
+        !is.na(order) & str_trim(order) != "" ~ "order",
+        !is.na(class) & str_trim(class) != "" ~ "class",
+        !is.na(phylum) & str_trim(phylum) != "" ~ "phylum",
+        !is.na(kingdom) & str_trim(kingdom) != "" ~ "kingdom",
+        TRUE ~ "unknown"
+      ))
+    
+    visualization <- visualization %>% rename(taxa = scientificName_updated)
+    
+    # Convert data to sf
+    sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+    
+    # Usa a variável reativa para obter os dados desenhados
+    load("updatedFeatures.RData")
+    if (is.null(updatedFeatures)) {
+      showNotification("No drawn features found.", type = "error")
+      return(NULL)
+    }
+    
+    selected_sf <- extract_data(updatedFeatures)
+    
+    all_search_results_inside <- list()
+    
+    for (i in 1:nrow(selected_sf)) {
+      name_to_search <- rownames(selected_sf[i, ])
+      name_to_search <- remove_trailing_numbers(name_to_search)
+      current_polygon <- selected_sf[i, 3]
+      search_results <- sf_data[sf_data$taxa == name_to_search, ]
+      if (nrow(search_results) > 0) {
+        points_sf <- st_as_sf(search_results, coords = c("decimalLongitude", "decimalLatitude"), crs = st_crs(selected_sf))
+        within_polygon <- st_intersects(points_sf, current_polygon, sparse = FALSE)
+        search_results_inside <- search_results[within_polygon, ]
+      } else {
+        search_results_inside <- data.frame()
+      }
+      all_search_results_inside[[i]] <- search_results_inside
+    }
+    
+    all_search_results_inside <- Filter(function(x) nrow(x) > 0, all_search_results_inside)
+    excluded_occurrence_data <- do.call(rbind, all_search_results_inside)
+    
+    sf_data$wkt <- st_as_text(sf_data$geometry)
+    excluded_occurrence_data$wkt <- st_as_text(excluded_occurrence_data$geometry)
+    coords <- sf::st_coordinates(excluded_occurrence_data)
+    excluded_occurrence_data$decimalLongitude <- coords[, "X"]
+    excluded_occurrence_data$decimalLatitude <- coords[, "Y"]
+    
+    unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(excluded_occurrence_data), 
+                             by = c("gbifID", "species", "genus", "family", "order", "class", "phylum", "kingdom")) %>% select(-geometry)
+    
+    excluded_occurrence_data <- excluded_occurrence_data %>% select(-wkt) %>% st_drop_geometry()
+    selected_occurrence_data <- st_as_sf(unique_rows, wkt = "wkt", crs = st_crs(sf_data))
+    coords <- sf::st_coordinates(selected_occurrence_data)
+    selected_occurrence_data$decimalLongitude <- coords[, "X"]
+    selected_occurrence_data$decimalLatitude <- coords[, "Y"]
+    selected_occurrence_data <- selected_occurrence_data %>% st_drop_geometry()
+    
+    if (save_option == "selected_occurrence_data" || save_option == "both") {
+      save_occurrence_data(selected_occurrence_data, input$save_path_selected, formats = input$formats_edit)
+    }
+    if (save_option == "excluded_occurrence_data" || save_option == "both") {
+      save_occurrence_data(excluded_occurrence_data, input$save_path_excluded, formats = input$formats_edit)
+    }
+  })
+  
+  # Adicionando as reativas e observadores para "Edit Map"
+  searchedValues <- reactiveVal(character(0))
+  drawnFeatures <- reactiveVal(list())
+  
+  observeEvent(input$selected_taxa, {
+    newSearch <- input$selected_taxa
+    currentSearches <- searchedValues()
+    updatedSearches <- unique(c(currentSearches, unlist(newSearch)))
+    searchedValues(updatedSearches)
+    assign("searchedValuesGlobal", updatedSearches, envir = .GlobalEnv)
+  })
+  
+  observeEvent(input$search_box, {
+    searchValue <- input$search_box
+    currentSearches <- searchedValues()
+    updatedSearches <- unique(c(currentSearches, searchValue))
+    searchedValues(updatedSearches)
+    assign("searchedValuesGlobal", updatedSearches, envir = .GlobalEnv)
+  })
+  
+  observeEvent(input$drawn_feature, {
+    feature <- input$drawn_feature
+    taxa <- feature$taxa
+    print(paste("New feature drawn for taxa:", taxa))
+    
+    # Add the taxa and the drawn polygon to the list
+    currentFeatures <- drawnFeatures()
+    updatedFeatures <- append(currentFeatures, list(feature))
+    drawnFeatures(updatedFeatures)
+    
+    # Update the global object with the drawn taxa
+    taxaList <- lapply(updatedFeatures, function(f) f$taxa)
+    assign("searchedValuesGlobal", taxaList, envir = .GlobalEnv)
+    assign("drawnFeaturesGlobal", updatedFeatures, envir = .GlobalEnv)
+    save(updatedFeatures, file = "updatedFeatures.RData")
+  })
+  
+  output$searchedValuesOutput_edit <- renderPrint({
+    searchedValues()
   })
 }
 
 shinyApp(ui, server)
+
