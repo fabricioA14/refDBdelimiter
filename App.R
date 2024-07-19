@@ -17,7 +17,7 @@ if (length(vars) != 0) {
 # Load all the packages
 sapply(pack, require, character.only = TRUE)
 
-# Limit to process 20 GB (ou ajuste conforme necessário)
+# Limit to process 20 GB (or adjust as needed)
 #options(shiny.maxRequestSize = 20000 * 1024^2)
 
 scrollable_legend_css <- "
@@ -27,7 +27,7 @@ scrollable_legend_css <- "
 }
 "
 
-# Função para criar gráfico empilhado interativo
+# Function to create interactive stacked bar plot
 create_stacked_bar <- function(data, taxonomic_level, title) {
   data %>%
     group_by(year, !!sym(taxonomic_level)) %>%
@@ -36,28 +36,37 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
 }
 
-# Função para salvar dados de ocorrência
-save_occurrence_data <- function(data, path, formats) {
-  if ("csv" %in% formats) {
-    fwrite(data, paste0(path, ".csv"))
-  }
-  if ("shp" %in% formats) {
-    st_write(st_as_sf(data), paste0(path, ".shp"))
-  }
-  if ("geojson" %in% formats) {
-    st_write(st_as_sf(data), paste0(path, ".geojson"))
-  }
-  if ("gpkg" %in% formats) {
-    st_write(st_as_sf(data), paste0(path, ".gpkg"))
-  }
-  if ("kml" %in% formats) {
-    st_write(st_as_sf(data), paste0(path, ".kml"))
-  }
+# Function to save occurrence data
+#save_occurrence_data <- function(data, path, formats) {
+#  if ("csv" %in% formats) {
+#    fwrite(data, paste0(path, ".csv"))
+#  }
+#  if ("shp" %in% formats) {
+#    st_write(st_as_sf(data), paste0(path, ".shp"))
+#  }
+#  if ("geojson" %in% formats) {
+#    st_write(st_as_sf(data), paste0(path, ".geojson"))
+#  }
+#  if ("gpkg" %in% formats) {
+#    st_write(st_as_sf(data), paste0(path, ".gpkg"))
+#  }
+#  if ("kml" %in% formats) {
+#    st_write(st_as_sf(data), paste0(path, ".kml"))
+#  }
+#}
+
+# Function to delete intermediate files
+delete_intermediate_files <- function(files) {
+  sapply(files, function(file) {
+    if (file.exists(file)) {
+      file.remove(file)
+    }
+  })
 }
 
-# Definir UI
+# Define UI
 ui <- fluidPage(
-  useShinyjs(),  # Incluir shinyjs
+  useShinyjs(),  # Include shinyjs
   tags$head(
     tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap"),
     tags$style(HTML("
@@ -269,6 +278,17 @@ ui <- fluidPage(
                                                              "csv" = "csv"),
                                               selected = c("shp", "geojson", "gpkg", "kml", "csv")),
                            actionButton("save_data", "Save Data", class = "btn-primary")
+                  ),
+                  tabPanel("Make Database",
+                           textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
+                           textInput("gbif_database", "GBIF Database:", value = "gbif_taxa_dataset.txt"),
+                           textInput("final_output_database", "Final Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
+                           numericInput("min_sequence_length", "Minimum Sequence Length:", value = 100, min = 1),
+                           textInput("pattern", "Pattern:", value = "UNVERIFIED"),
+                           checkboxInput("parse_seqids", "Parse SeqIDs:", TRUE),
+                           selectInput("database_type", "Database Type:", choices = c("nucl", "prot"), selected = "nucl"),
+                           textInput("title", "Title:", value = "local_database"),
+                           actionButton("run_make_database", "Run Make Database", class = "btn-primary")
                   )
       )
     ),
@@ -299,16 +319,16 @@ ui <- fluidPage(
   )
 )
 
-# Definir a lógica do servidor
+# Define server logic
 server <- function(input, output, session) {
-  # Variáveis reativas para armazenar dados processados
+  # Reactive variables to store processed data
   pre_filtered_data <- reactiveVal(NULL)
   taxonomy_cleaned <- reactiveVal(NULL)
   space_cleaned <- reactiveVal(NULL)
   time_cleaned <- reactiveVal(NULL)
   selected_occurrence_data <- reactiveVal(NULL)
   excluded_occurrence_data <- reactiveVal(NULL)
-  drawn_features <- reactiveVal(NULL)  # Variável reativa para armazenar features desenhadas
+  drawn_features <- reactiveVal(NULL)  # Reactive variable to store drawn features
   
   # Pre-Treatment Process
   shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
@@ -378,7 +398,7 @@ server <- function(input, output, session) {
       dplyr::filter(.summary == TRUE) %>%
       bdc_filter_out_flags(data = ., col_to_remove = "all")
     
-    pre_filtered_data(pre_filtered)  # Atualiza a variável reativa
+    pre_filtered_data(pre_filtered)  # Update reactive variable
     
     save_occurrence_data(pre_filtered, input$save_path_pre, formats = input$formats)
     
@@ -435,7 +455,7 @@ server <- function(input, output, session) {
     
     taxonomy_cleaned_data <- check_taxonomy %>% select_if(~ !all(is.na(.)))
     
-    taxonomy_cleaned(taxonomy_cleaned_data)  # Atualiza a variável reativa
+    taxonomy_cleaned(taxonomy_cleaned_data)  # Update reactive variable
     
     save_occurrence_data(taxonomy_cleaned_data, input$save_path_tax, formats = input$formats_tax)
     
@@ -494,7 +514,7 @@ server <- function(input, output, session) {
     space_cleaned_data <- space_cleaned_data %>%
       filter(!is.na(species) & species != "")
     
-    space_cleaned(space_cleaned_data)  # Atualiza a variável reativa
+    space_cleaned(space_cleaned_data)  # Update reactive variable
     
     save_occurrence_data(space_cleaned_data, input$save_path_space, formats = input$formats_space)
     
@@ -539,7 +559,7 @@ server <- function(input, output, session) {
       select(-scientificName, -countryCode, -stateProvince, -locality, -basisOfRecord, -names_clean)
     
     
-    time_cleaned(time_cleaned_data)  # Atualiza a variável reativa
+    time_cleaned(time_cleaned_data)  # Update reactive variable
     
     save_occurrence_data(time_cleaned_data, input$save_path_time, formats = input$formats_time)
     
@@ -752,7 +772,7 @@ server <- function(input, output, session) {
                 taxa: selectedTaxa
               });
               
-              // Atualiza a variável reativa com as features desenhadas
+              // Update reactive variable with drawn features
               Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
               drawn_features(layer.toGeoJSON());
             }
@@ -787,7 +807,7 @@ server <- function(input, output, session) {
     runjs("$('#save_data').addClass('selected');")
     save_option <- input$save_option
     
-    # Inserir a lógica do input do Save Data aqui
+    # Insert the logic for the Save Data input here
     time_cleaned_data <- time_cleaned()
     if (is.null(time_cleaned_data)) {
       showNotification("No data available for mapping. Please run the previous processes first.", type = "error")
@@ -811,7 +831,7 @@ server <- function(input, output, session) {
     # Convert data to sf
     sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
     
-    # Verificar se o arquivo updatedFeatures.RData existe no diretório atual de trabalho
+    # Check if the updatedFeatures.RData file exists in the current working directory
     if (!file.exists("updatedFeatures.RData")) {
       # Get unique species names and collapse into a string
       unique_taxa <- unique(visualization$taxa)
@@ -819,13 +839,13 @@ server <- function(input, output, session) {
       
       # Write collapsed string to file
       writeLines(collapsed_string, "gbif_taxa_dataset.txt")
-      # Salvar todos os dados do objeto visualization
+      # Save all data from the visualization object
       save_occurrence_data(sf_data, input$save_path_selected, formats = input$formats_edit)
       showNotification("All data from the visualization object has been saved.", type = "message")
       return(NULL)
     }
     
-    # Usa a variável reativa para obter os dados desenhados
+    # Use the reactive variable to obtain the drawn data
     load("updatedFeatures.RData")
     if (is.null(updatedFeatures)) {
       showNotification("No drawn features found.", type = "error")
@@ -885,7 +905,39 @@ server <- function(input, output, session) {
     }
   })
   
-  # Adicionando as reativas e observadores para "Edit Map"
+  # Make Database Process
+  observeEvent(input$run_make_database, {
+    runjs("$('#run_make_database').addClass('selected');")
+    raw_database <- input$raw_database
+    gbif_database <- input$gbif_database
+    final_output_database <- input$final_output_database
+    min_sequence_length <- input$min_sequence_length
+    pattern <- input$pattern
+    parse_seqids <- input$parse_seqids
+    database_type <- input$database_type
+    title <- input$title
+    
+    # Define intermediate parameters
+    database_cleaned <- "ncbiChordataToGbif.fasta"
+    cleaned_ncbi_database <- "ncbi_cleaned.fasta"
+    
+    # Call the function format_ncbi_database
+    format_ncbi_database(raw_database, database_cleaned, min_sequence_length, pattern)
+    # Delete intermediate file
+    #delete_intermediate_files(c(raw_database))
+    
+    # Call the function subset_ncbi_based_on_gbif
+    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, cleaned_ncbi_database)
+    # Delete intermediate file
+    delete_intermediate_files(c(database_cleaned))
+    
+    # Call the function create_blast_db
+    create_blast_db(cleaned_ncbi_database, parse_seqids, database_type, title)
+    # Delete intermediate file
+    delete_intermediate_files(c(cleaned_ncbi_database))
+  })
+  
+  # Adding reactives and observers for "Edit Map"
   searchedValues <- reactiveVal(character(0))
   drawnFeatures <- reactiveVal(list())
   
@@ -928,4 +980,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
