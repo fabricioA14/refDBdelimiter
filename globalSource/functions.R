@@ -111,8 +111,9 @@ save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojso
   }
   if ("csv" %in% formats) {
     output_csv <- st_drop_geometry(data)
-    write.csv(output_csv, output_paths$csv, row.names = FALSE)
+    write.table(output_csv, output_paths$csv, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
   }
   
   cat("Data saved in formats:", paste(formats, collapse = ", "), "\n")
 }
+

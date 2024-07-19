@@ -1,4 +1,5 @@
 
+
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
@@ -15,6 +16,9 @@ if (length(vars) != 0) {
 
 # Load all the packages
 sapply(pack, require, character.only = TRUE)
+
+# Limit to process 20 GB (ou ajuste conforme necessário)
+#options(shiny.maxRequestSize = 20000 * 1024^2)
 
 scrollable_legend_css <- "
 .info.legend {
@@ -179,6 +183,14 @@ ui <- fluidPage(
                   ),
                   tabPanel("Space Process",
                            numericInput("ndec", "Number of decimals to be tested:", value = 3, min = 1),
+                           selectInput("clustering_level", "Clustering Based on:",
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "class"),
                            checkboxGroupInput("tests", "Select spatial tests:",
                                               choices = list(
                                                 "capitals" = "capitals",
@@ -239,11 +251,6 @@ ui <- fluidPage(
                                               selected = c("shp", "geojson", "gpkg", "kml", "csv")),
                            actionButton("run_time", "Run Time Process", class = "btn-primary")
                   ),
-                  tabPanel("Map Visualization",
-                           actionButton("run_map", "Generate Map", class = "btn-primary"),
-                           leafletOutput("map"),
-                           verbatimTextOutput("searchedValuesOutput")
-                  ),
                   tabPanel("Edit Map",
                            actionButton("run_edit_map", "Generate Edit Map", class = "btn-primary"),
                            leafletOutput("edit_map"),
@@ -283,9 +290,6 @@ ui <- fluidPage(
         tabPanel("Time Output",
                  plotlyOutput("time_input_plot"),
                  plotlyOutput("time_output_plot")
-        ),
-        tabPanel("Map Visualization",
-                 leafletOutput("map")
         ),
         tabPanel("Edit Map Output",
                  leafletOutput("edit_map")
@@ -407,9 +411,6 @@ server <- function(input, output, session) {
     
     check_taxonomy <- dplyr::left_join(pre_filtered, parse_names, by = "scientificName")
     
-    # Remover objetos intermediários usados no Pre-Treatment Process
-    #rm(data, dataPreProcess, xyFromLocality, nome_map, cntr)
-    
     spl <- unique(check_taxonomy$names_clean) %>% sort()
     
     query_names <- bdc_query_names_taxadb(
@@ -469,7 +470,7 @@ server <- function(input, output, session) {
       x = check_space,
       lon = "decimalLongitude",
       lat = "decimalLatitude",
-      species = "scientificName_updated",
+      species = input$clustering_level,
       tests = input$tests,
       capitals_rad = input$capitals_rad,
       centroids_rad = input$centroids_rad,
@@ -489,6 +490,9 @@ server <- function(input, output, session) {
     space_cleaned_data <- check_space %>%
       dplyr::filter(.summary == TRUE) %>%
       bdc_filter_out_flags(data = ., col_to_remove = "all")
+    
+    space_cleaned_data <- space_cleaned_data %>%
+      filter(!is.na(species) & species != "")
     
     space_cleaned(space_cleaned_data)  # Atualiza a variável reativa
     
@@ -531,6 +535,10 @@ server <- function(input, output, session) {
       bdc_filter_out_flags(data = ., col_to_remove = "all") %>%
       dplyr::tibble() 
     
+    time_cleaned_data <- time_cleaned_data %>%
+      select(-scientificName, -countryCode, -stateProvince, -locality, -basisOfRecord, -names_clean)
+    
+    
     time_cleaned(time_cleaned_data)  # Atualiza a variável reativa
     
     save_occurrence_data(time_cleaned_data, input$save_path_time, formats = input$formats_time)
@@ -542,247 +550,6 @@ server <- function(input, output, session) {
     output$time_output_plot <- renderPlotly({
       create_stacked_bar(time_cleaned_data, input$taxonomic_level_time, "Time-Cleaned Dataset by Year and Taxonomic Level")
     })
-  })
-  
-  # Map Visualization
-  
-  rm(space_cleaned_data)
-  gc()
-  
-  observeEvent(input$run_map, {
-    runjs("$('#run_map').addClass('selected');")
-    time_cleaned_data <- time_cleaned()
-    if (is.null(time_cleaned_data)) {
-      showNotification("No data available for mapping. Please run the previous processes first.", type = "error")
-      return(NULL)
-    }
-    
-    visualization <- time_cleaned_data %>%
-      mutate(identification_level = case_when(
-        !is.na(species) & str_trim(species) != "" ~ "species",
-        !is.na(genus) & str_trim(genus) != "" ~ "genus",
-        !is.na(family) & str_trim(family) != "" ~ "family",
-        !is.na(order) & str_trim(order) != "" ~ "order",
-        !is.na(class) & str_trim(class) != "" ~ "class",
-        !is.na(phylum) & str_trim(phylum) != "" ~ "phylum",
-        !is.na(kingdom) & str_trim(kingdom) != "" ~ "kingdom",
-        TRUE ~ "unknown"
-      ))
-    
-    visualization <- visualization %>% rename(taxa = scientificName_updated)
-    
-    # Convert data to sf
-    sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
-    
-    # Add WKT column for geometry comparison
-    sf_data$wkt <- st_as_text(sf_data$geometry)
-    #excluded_occurrence_data$wkt <- st_as_text(excluded_occurrence_data$geometry)
-    
-    # Perform anti-join to find unique rows in sf_data
-    #unique_rows <- anti_join(as.data.frame(sf_data), as.data.frame(excluded_occurrence_data), 
-    #                         by = c("gbifID", "species", "genus", "family", "order", "class", "phylum", "kingdom", "country", "wkt"))
-    
-    # Convert back to sf and remove WKT column
-    selected_occurrence_data <- st_as_sf(sf_data, wkt = "wkt", crs = st_crs(sf_data)) %>% select(-wkt)
-    # Separate the geometry coordinates into latitude and longitude columns
-    coords <- sf::st_coordinates(selected_occurrence_data)
-    selected_occurrence_data$decimalLongitude <- coords[, "X"]
-    selected_occurrence_data$decimalLatitude <- coords[, "Y"]
-    
-    # Define a color palette for the species
-    qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = selected_occurrence_data$taxa)
-    
-    # Leaflet map
-    map_within_sa <- leaflet(selected_occurrence_data) %>%
-      addProviderTiles(providers$Esri.WorldStreetMap) %>%
-      addCircleMarkers(
-        lng = ~decimalLongitude, lat = ~decimalLatitude,
-        radius = 3,
-        color = ~qual_palette(taxa),
-        label = ~taxa,
-        popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
-        group = ~paste(taxa, genus, family, order, class, phylum, identification_level, sep = ","),  # Include identification level in group
-        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, order, class, phylum, identification_level)
-      ) %>%
-      addLegend(
-        position = "bottomright",
-        pal = qual_palette,
-        values = ~taxa,
-        title = "Species",
-        opacity = 1,
-        labFormat = function(type, cuts, p) {
-          sapply(cuts, function(cut) {
-            paste0("<span style='font-style:italic;'>", htmltools::htmlEscape(cut), "</span>")
-          })
-        }
-      ) %>%
-      htmlwidgets::onRender("
-        function(el, x) {
-          var myMap = this;
-          var originalLayers = {};
-          var uniqueTaxa = new Set(); // Use a Set to store unique taxa
-    
-          myMap.eachLayer(function(layer) {
-            if (layer.options && layer.options.group) {
-              originalLayers[layer.options.layerId] = layer;
-              uniqueTaxa.add(layer.options.group); // Add the unique taxa
-            }
-          });
-    
-          // Select all unique layers by default
-          var selectedTaxa = Array.from(uniqueTaxa);
-          selectedTaxa.forEach(function(taxon) {
-            Object.values(originalLayers).forEach(function(layer) {
-              if (layer.options.group === taxon) {
-                myMap.addLayer(layer);
-              }
-            });
-          });
-    
-          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
-    
-          var searchControl = L.control({position: 'bottomleft'});
-    
-          searchControl.onAdd = function(map) {
-            var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML = '<h4>Search Taxa</h4>';
-            div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
-            div.innerHTML += '<button id=\"search-button\">Search</button>';
-    
-            var searchBox = div.querySelector('#search-box');
-    
-            searchBox.onfocus = function() {
-              myMap.dragging.disable();
-              myMap.touchZoom.disable();
-              myMap.doubleClickZoom.disable();
-              myMap.scrollWheelZoom.disable();
-            };
-    
-            searchBox.onblur = function() {
-              myMap.dragging.enable();
-              myMap.touchZoom.enable();
-              myMap.doubleClickZoom.enable();
-              myMap.scrollWheelZoom.enable();
-            };
-    
-            div.querySelector('#search-button').onclick = function() {
-              var searchValue = searchBox.value;
-              var taxaArray = searchValue.split(',').map(function(taxon) {
-                return taxon.trim();
-              });
-    
-              Object.values(originalLayers).forEach(function(layer) {
-                myMap.removeLayer(layer);
-              });
-    
-              if (searchValue === 'all' || searchValue === '') {
-                // Select all unique layers if search value is 'all' or empty
-                selectedTaxa = Array.from(uniqueTaxa);
-                selectedTaxa.forEach(function(taxon) {
-                  Object.values(originalLayers).forEach(function(layer) {
-                    if (layer.options.group === taxon) {
-                      myMap.addLayer(layer);
-                    }
-                  });
-                });
-              } else {
-                var foundLayers = new Set();
-                taxaArray.forEach(function(taxon) {
-                  Object.values(originalLayers).forEach(function(layer) {
-                    var layerGroup = layer.options.group;
-                    var isGenusSearch = taxon.endsWith(' (genus)');
-                    var isFamilySearch = taxon.endsWith(' (family)');
-                    var isOrderSearch = taxon.endsWith(' (order)');
-                    var isClassSearch = taxon.endsWith(' (class)');
-                    var isPhylumSearch = taxon.endsWith(' (phylum)');
-                    var taxonWithoutSuffix = taxon.replace(' (genus)', '').replace(' (family)', '').replace(' (order)', '').replace(' (class)', '').replace(' (phylum)', '');
-    
-                    if (isGenusSearch) {
-                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    } else if (isFamilySearch) {
-                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    } else if (isOrderSearch) {
-                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('order')) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    } else if (isClassSearch) {
-                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('class')) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    } else if (isPhylumSearch) {
-                      if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('phylum')) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    } else {
-                      if (layerGroup.includes(taxonWithoutSuffix)) {
-                        myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
-                      }
-                    }
-                  });
-                });
-                selectedTaxa = Array.from(foundLayers);
-              }
-    
-              Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
-              Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
-    
-              // Use requestAnimationFrame for setting the cursor at the end
-              requestAnimationFrame(function() {
-                searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
-                searchBox.scrollLeft = searchBox.scrollWidth;
-              });
-            };
-    
-            return div;
-          };
-    
-          searchControl.addTo(myMap);
-    
-          myMap.on('draw:created', function(e) {
-            if (selectedTaxa.length > 0) {
-              var layer = e.layer;
-              var layerType = e.layerType;
-              Shiny.setInputValue('drawn_feature', {
-                type: layerType,
-                layer: layer.toGeoJSON(),
-                taxa: selectedTaxa
-              });
-              
-              // Atualiza a variável reativa com as features desenhadas
-              Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
-              drawn_features(layer.toGeoJSON());
-            }
-          });
-    
-          // JavaScript to dynamically adjust the legend width
-          var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
-          var maxWidth = 0;
-    
-          legendItems.forEach(function(item) {
-            var width = item.clientWidth;
-            if (width > maxWidth) {
-              maxWidth = width;
-            }
-          });
-    
-          var legend = document.querySelector('.leaflet-legend');
-          if (legend) {
-            legend.style.width = (maxWidth + 50) + 'px'; // Add some padding
-          }
-        }
-      ")
-    
-    output$map <- renderLeaflet(map_within_sa)
   })
   
   # Edit Map Process
@@ -1012,6 +779,9 @@ server <- function(input, output, session) {
     output$edit_map <- renderLeaflet(map_within_sa_edit)
   })
   
+  rm(visualization, sf_data)
+  gc()
+  
   # Save Data Process
   observeEvent(input$save_data, {
     runjs("$('#save_data').addClass('selected');")
@@ -1040,6 +810,20 @@ server <- function(input, output, session) {
     
     # Convert data to sf
     sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+    
+    # Verificar se o arquivo updatedFeatures.RData existe no diretório atual de trabalho
+    if (!file.exists("updatedFeatures.RData")) {
+      # Get unique species names and collapse into a string
+      unique_taxa <- unique(visualization$taxa)
+      collapsed_string <- paste(unique_taxa, collapse = "|")
+      
+      # Write collapsed string to file
+      writeLines(collapsed_string, "gbif_taxa_dataset.txt")
+      # Salvar todos os dados do objeto visualization
+      save_occurrence_data(sf_data, input$save_path_selected, formats = input$formats_edit)
+      showNotification("All data from the visualization object has been saved.", type = "message")
+      return(NULL)
+    }
     
     # Usa a variável reativa para obter os dados desenhados
     load("updatedFeatures.RData")
@@ -1085,6 +869,13 @@ server <- function(input, output, session) {
     selected_occurrence_data$decimalLongitude <- coords[, "X"]
     selected_occurrence_data$decimalLatitude <- coords[, "Y"]
     selected_occurrence_data <- selected_occurrence_data %>% st_drop_geometry()
+    
+    # Get unique species names and collapse into a string
+    unique_taxa <- unique(selected_occurrence_data$taxa)
+    collapsed_string <- paste(unique_taxa, collapse = "|")
+    
+    # Write collapsed string to file
+    writeLines(collapsed_string, "gbif_taxa_dataset.txt")
     
     if (save_option == "selected_occurrence_data" || save_option == "both") {
       save_occurrence_data(selected_occurrence_data, input$save_path_selected, formats = input$formats_edit)
