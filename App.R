@@ -1,5 +1,3 @@
-
-
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
@@ -20,6 +18,15 @@ sapply(pack, require, character.only = TRUE)
 # Limit to process 20 GB (or adjust as needed)
 #options(shiny.maxRequestSize = 20000 * 1024^2)
 
+# Function to delete intermediate files
+delete_intermediate_files <- function(files) {
+  sapply(files, function(file) {
+    if (file.exists(file)) {
+      file.remove(file)
+    }
+  })
+}
+
 scrollable_legend_css <- "
 .info.legend {
   max-height: calc(93vh - 93px); /* Adjust the height as needed */
@@ -34,34 +41,6 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     summarise(count = n(), .groups = 'drop') %>%
     plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
-}
-
-# Function to save occurrence data
-#save_occurrence_data <- function(data, path, formats) {
-#  if ("csv" %in% formats) {
-#    fwrite(data, paste0(path, ".csv"))
-#  }
-#  if ("shp" %in% formats) {
-#    st_write(st_as_sf(data), paste0(path, ".shp"))
-#  }
-#  if ("geojson" %in% formats) {
-#    st_write(st_as_sf(data), paste0(path, ".geojson"))
-#  }
-#  if ("gpkg" %in% formats) {
-#    st_write(st_as_sf(data), paste0(path, ".gpkg"))
-#  }
-#  if ("kml" %in% formats) {
-#    st_write(st_as_sf(data), paste0(path, ".kml"))
-#  }
-#}
-
-# Function to delete intermediate files
-delete_intermediate_files <- function(files) {
-  sapply(files, function(file) {
-    if (file.exists(file)) {
-      file.remove(file)
-    }
-  })
 }
 
 # Define UI
@@ -288,6 +267,19 @@ ui <- fluidPage(
                            checkboxInput("parse_seqids", "Parse SeqIDs:", TRUE),
                            selectInput("database_type", "Database Type:", choices = c("nucl", "prot"), selected = "nucl"),
                            textInput("title", "Title:", value = "local_database"),
+                           textInput("out", "Database Name (out)", value = ""),
+                           checkboxInput("hash_index", "Hash Index", FALSE),
+                           textInput("mask_data", "Mask Data", value = ""),
+                           textInput("mask_id", "Mask ID", value = ""),
+                           textInput("mask_desc", "Mask Description", value = ""),
+                           checkboxInput("gi_mask", "GI Mask", FALSE),
+                           textInput("gi_mask_name", "GI Mask Name", value = ""),
+                           #numericInput("blastdb_version", "BLAST DB Version", value = NULL, min = 1),
+                           textInput("max_file_sz", "Max File Size", value = ""),
+                           textInput("logfile", "Log File", value = ""),
+                           textInput("taxid", "TaxID", value = ""),
+                           textInput("taxid_map", "TaxID Map File", value = ""),
+                           #checkboxInput("version", "Version", FALSE),
                            actionButton("run_make_database", "Run Make Database", class = "btn-primary")
                   )
       )
@@ -916,10 +908,21 @@ server <- function(input, output, session) {
     parse_seqids <- input$parse_seqids
     database_type <- input$database_type
     title <- input$title
+    out <- input$out
+    hash_index <- input$hash_index
+    mask_data <- input$mask_data
+    mask_id <- input$mask_id
+    mask_desc <- input$mask_desc
+    gi_mask <- input$gi_mask
+    gi_mask_name <- input$gi_mask_name
+    max_file_sz <- input$max_file_sz 
+    logfile <- input$logfile
+    taxid <- input$taxid
+    taxid_map <- input$taxid_map
     
     # Define intermediate parameters
     database_cleaned <- "ncbiChordataToGbif.fasta"
-    cleaned_ncbi_database <- "ncbi_cleaned.fasta"
+    #cleaned_ncbi_database <- "ncbi_cleaned.fasta"
     
     # Call the function format_ncbi_database
     format_ncbi_database(raw_database, database_cleaned, min_sequence_length, pattern)
@@ -927,14 +930,14 @@ server <- function(input, output, session) {
     #delete_intermediate_files(c(raw_database))
     
     # Call the function subset_ncbi_based_on_gbif
-    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, cleaned_ncbi_database)
+    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database)
     # Delete intermediate file
     delete_intermediate_files(c(database_cleaned))
     
     # Call the function create_blast_db
-    create_blast_db(cleaned_ncbi_database, parse_seqids, database_type, title)
+    create_blast_db(final_output_database, parse_seqids, database_type, title, out, hash_index, mask_data, mask_id, mask_desc, gi_mask, gi_mask_name, max_file_sz, logfile, taxid, taxid_map)
     # Delete intermediate file
-    delete_intermediate_files(c(cleaned_ncbi_database))
+    #delete_intermediate_files(c(cleaned_ncbi_database))
   })
   
   # Adding reactives and observers for "Edit Map"
@@ -980,3 +983,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
