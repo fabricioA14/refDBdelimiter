@@ -2,7 +2,7 @@
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
           'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools','countrycode','data.table','stringr',
-          'plotly','shinyFiles','shinyjs')
+          'plotly','shinyFiles','shinyjs', 'plyr', 'taxize', 'taxizedb')
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]
@@ -43,9 +43,9 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
 }
 
-# Define UI
+# UI
 ui <- fluidPage(
-  useShinyjs(),  # Include shinyjs
+  useShinyjs(),
   tags$head(
     tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap"),
     tags$style(HTML("
@@ -100,7 +100,7 @@ ui <- fluidPage(
     ")),
     tags$style(type = "text/css", "#map {height: calc(90vh - 20px) !important;}"),
     tags$style(type = "text/css", "#edit_map {height: calc(90vh - 20px) !important;}"),
-    tags$style(HTML(scrollable_legend_css))  # Add the custom CSS for scrollable legend
+    tags$style(HTML(scrollable_legend_css))
   ),
   
   div(class = "title-panel", 
@@ -281,6 +281,18 @@ ui <- fluidPage(
                            textInput("taxid_map", "TaxID Map File", value = ""),
                            #checkboxInput("version", "Version", FALSE),
                            actionButton("run_make_database", "Run Make Database", class = "btn-primary")
+                  ),
+                  tabPanel("Taxonomic Assignment",
+                           textInput("directory", "Directory:", value = ""),
+                           textInput("database_file", "Database File:", value = ""),
+                           numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
+                           numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
+                           numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
+                           numericInput("num_threads", "Number of Threads:", value = 6, min = 1),
+                           numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
+                           numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
+                           numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
+                           actionButton("run_blast", "Run BLAST", class = "btn-primary")
                   )
       )
     ),
@@ -979,6 +991,20 @@ server <- function(input, output, session) {
   
   output$searchedValuesOutput_edit <- renderPrint({
     searchedValues()
+  })
+  
+  observeEvent(input$run_blast, {
+    Directory <- input$directory
+    Database_File <- input$database_file
+    max_target_seqs <- input$max_target_seqs
+    perc_identity <- input$perc_identity
+    qcov_hsp_perc <- input$qcov_hsp_perc
+    num_threads <- input$num_threads
+    Specie_Threshold <- input$specie_threshold
+    Genus_Threshold <- input$genus_threshold
+    Family_Threshold <- input$family_threshold
+    
+    blast_gibi(Directory, Database_File, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, Specie_Threshold, Genus_Threshold, Family_Threshold)
   })
 }
 
