@@ -1,8 +1,11 @@
+
+
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
           'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools','countrycode','data.table','stringr',
-          'plotly','shinyFiles','shinyjs', 'plyr', 'taxize', 'taxizedb')
+          'plotly','shinyFiles','shinyjs', 'taxize', 'taxizedb')
+#library(plyr)
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]
@@ -42,6 +45,7 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
 }
+
 
 # UI
 ui <- fluidPage(
@@ -285,6 +289,9 @@ ui <- fluidPage(
                   tabPanel("Taxonomic Assignment",
                            textInput("directory", "Directory:", value = ""),
                            textInput("database_file", "Database File:", value = ""),
+                           textInput("query", "Query File:", value = "otus.fasta"),  # Novo campo para query
+                           textInput("task", "Task:", value = "megablast"),          # Novo campo para task
+                           textInput("out", "Output File:", value = "blast.txt"),    # Novo campo para out
                            numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
                            numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
                            numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
@@ -292,7 +299,51 @@ ui <- fluidPage(
                            numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
                            numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
                            numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
-                           actionButton("run_blast", "Run BLAST", class = "btn-primary")
+                           numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), # Novo campo para penalty
+                           numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   # Novo campo para reward
+                           numericInput("evalue", "E-value:", value = NA, min = 0),                       # Novo campo para evalue
+                           numericInput("word_size", "Word Size:", value = NA, min = 1),                  # Novo campo para word_size
+                           numericInput("gapopen", "Gap Open Penalty:", value = NA, min = 0),             # Novo campo para gapopen
+                           numericInput("gapextend", "Gap Extend Penalty:", value = NA, min = 0),         # Novo campo para gapextend
+                           numericInput("max_hsps", "Max HSPs:", value = NA, min = 1),                    # Novo campo para max_hsps
+                           numericInput("xdrop_ungap", "Xdrop Ungap:", value = NA, min = 0),              # Novo campo para xdrop_ungap
+                           numericInput("xdrop_gap", "Xdrop Gap:", value = NA, min = 0),                  # Novo campo para xdrop_gap
+                           numericInput("xdrop_gap_final", "Xdrop Gap Final:", value = NA, min = 0),      # Novo campo para xdrop_gap_final
+                           numericInput("searchsp", "Search Space:", value = NA, min = 0),                # Novo campo para searchsp
+                           numericInput("sum_stats", "Sum Stats:", value = NA),                           # Novo campo para sum_stats
+                           numericInput("no_greedy", "No Greedy:", value = NA),                           # Novo campo para no_greedy
+                           numericInput("min_raw_gapped_score", "Min Raw Gapped Score:", value = NA, min = 0), # Novo campo para min_raw_gapped_score
+                           textInput("template_type", "Template Type:", value = ""),                      # Novo campo para template_type
+                           numericInput("template_length", "Template Length:", value = NA, min = 0),      # Novo campo para template_length
+                           textInput("dust", "DUST Options:", value = ""),                                # Novo campo para dust
+                           textInput("filtering_db", "Filtering DB:", value = ""),                        # Novo campo para filtering_db
+                           textInput("window_masker_taxid", "Window Masker Taxid:", value = ""),          # Novo campo para window_masker_taxid
+                           textInput("window_masker_db", "Window Masker DB:", value = ""),                # Novo campo para window_masker_db
+                           numericInput("soft_masking", "Soft Masking:", value = NA),                     # Novo campo para soft_masking
+                           numericInput("ungapped", "Ungapped:", value = NA),                             # Novo campo para ungapped
+                           numericInput("culling_limit", "Culling Limit:", value = NA, min = 1),          # Novo campo para culling_limit
+                           numericInput("best_hit_overhang", "Best Hit Overhang:", value = NA, min = 0),  # Novo campo para best_hit_overhang
+                           numericInput("best_hit_score_edge", "Best Hit Score Edge:", value = NA, min = 0), # Novo campo para best_hit_score_edge
+                           numericInput("subject_besthit", "Subject Besthit:", value = NA),               # Novo campo para subject_besthit
+                           numericInput("window_size", "Window Size:", value = NA, min = 1),              # Novo campo para window_size
+                           numericInput("off_diagonal_range", "Off Diagonal Range:", value = NA, min = 0),# Novo campo para off_diagonal_range
+                           numericInput("use_index", "Use Index:", value = NA),                           # Novo campo para use_index
+                           textInput("index_name", "Index Name:", value = ""),                            # Novo campo para index_name
+                           numericInput("lcase_masking", "Lcase Masking:", value = NA),                   # Novo campo para lcase_masking
+                           textInput("query_loc", "Query Loc:", value = ""),                              # Novo campo para query_loc
+                           textInput("strand", "Strand:", value = ""),                                    # Novo campo para strand
+                           numericInput("parse_deflines", "Parse Deflines:", value = NA),                 # Novo campo para parse_deflines
+                           numericInput("outfmt", "Output Format:", value = 6),                           # Campo para outfmt com valor padrão 6
+                           numericInput("show_gis", "Show GIS:", value = NA),                             # Novo campo para show_gis
+                           numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    # Novo campo para num_descriptions
+                           numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),        # Novo campo para num_alignments
+                           numericInput("line_length", "Line Length:", value = NA, min = 1),              # Novo campo para line_length
+                           numericInput("html", "HTML:", value = NA),                                     # Novo campo para html
+                           textInput("sorthits", "Sort Hits:", value = ""),                               # Novo campo para sorthits
+                           textInput("sorthsps", "Sort HSPs:", value = ""),                               # Novo campo para sorthsps
+                           numericInput("mt_mode", "MT Mode:", value = NA, min = 0),                      # Novo campo para mt_mode
+                           numericInput("remote", "Remote:", value = NA),                                 # Novo campo para remote
+                           actionButton("run_blast", "Run BLAST", class = "btn-primary")                  # Botão para executar o BLAST
                   )
       )
     ),
@@ -996,6 +1047,9 @@ server <- function(input, output, session) {
   observeEvent(input$run_blast, {
     Directory <- input$directory
     Database_File <- input$database_file
+    query <- input$query
+    task <- input$task
+    out <- input$out
     max_target_seqs <- input$max_target_seqs
     perc_identity <- input$perc_identity
     qcov_hsp_perc <- input$qcov_hsp_perc
@@ -1003,9 +1057,61 @@ server <- function(input, output, session) {
     Specie_Threshold <- input$specie_threshold
     Genus_Threshold <- input$genus_threshold
     Family_Threshold <- input$family_threshold
+    penalty <- if (is.na(input$penalty)) NULL else input$penalty
+    reward <- if (is.na(input$reward)) NULL else input$reward
+    evalue <- if (is.na(input$evalue)) NULL else input$evalue
+    word_size <- if (is.na(input$word_size)) NULL else input$word_size
+    gapopen <- if (is.na(input$gapopen)) NULL else input$gapopen
+    gapextend <- if (is.na(input$gapextend)) NULL else input$gapextend
+    max_hsps <- if (is.na(input$max_hsps)) NULL else input$max_hsps
+    xdrop_ungap <- if (is.na(input$xdrop_ungap)) NULL else input$xdrop_ungap
+    xdrop_gap <- if (is.na(input$xdrop_gap)) NULL else input$xdrop_gap
+    xdrop_gap_final <- if (is.na(input$xdrop_gap_final)) NULL else input$xdrop_gap_final
+    searchsp <- if (is.na(input$searchsp)) NULL else input$searchsp
+    sum_stats <- if (is.na(input$sum_stats)) NULL else input$sum_stats
+    no_greedy <- if (is.na(input$no_greedy)) NULL else input$no_greedy
+    min_raw_gapped_score <- if (is.na(input$min_raw_gapped_score)) NULL else input$min_raw_gapped_score
+    template_type <- if (input$template_type == "") NULL else input$template_type
+    template_length <- if (is.na(input$template_length)) NULL else input$template_length
+    dust <- if (input$dust == "") NULL else input$dust
+    filtering_db <- if (input$filtering_db == "") NULL else input$filtering_db
+    window_masker_taxid <- if (input$window_masker_taxid == "") NULL else input$window_masker_taxid
+    window_masker_db <- if (input$window_masker_db == "") NULL else input$window_masker_db
+    soft_masking <- if (is.na(input$soft_masking)) NULL else input$soft_masking
+    ungapped <- if (is.na(input$ungapped)) NULL else input$ungapped
+    culling_limit <- if (is.na(input$culling_limit)) NULL else input$culling_limit
+    best_hit_overhang <- if (is.na(input$best_hit_overhang)) NULL else input$best_hit_overhang
+    best_hit_score_edge <- if (is.na(input$best_hit_score_edge)) NULL else input$best_hit_score_edge
+    subject_besthit <- if (is.na(input$subject_besthit)) NULL else input$subject_besthit
+    window_size <- if (is.na(input$window_size)) NULL else input$window_size
+    off_diagonal_range <- if (is.na(input$off_diagonal_range)) NULL else input$off_diagonal_range
+    use_index <- if (is.na(input$use_index)) NULL else input$use_index
+    index_name <- if (input$index_name == "") NULL else input$index_name
+    lcase_masking <- if (is.na(input$lcase_masking)) NULL else input$lcase_masking
+    query_loc <- if (input$query_loc == "") NULL else input$query_loc
+    strand <- if (input$strand == "") NULL else input$strand
+    parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
+    outfmt <- input$outfmt
+    show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
+    num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
+    num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
+    line_length <- if (is.na(input$line_length)) NULL else input$line_length
+    html <- if (is.na(input$html)) NULL else input$html
+    sorthits <- if (input$sorthits == "") NULL else input$sorthits
+    sorthsps <- if (input$sorthsps == "") NULL else input$sorthsps
+    mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
+    remote <- if (is.na(input$remote)) NULL else input$remote
     
-    blast_gibi(Directory, Database_File, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, Specie_Threshold, Genus_Threshold, Family_Threshold)
+    blast_gibi(Directory, Database_File, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+               Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
+               gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
+               min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
+               window_masker_db, soft_masking, ungapped, culling_limit, best_hit_overhang, best_hit_score_edge, 
+               subject_besthit, window_size, off_diagonal_range, use_index, index_name, lcase_masking, query_loc, 
+               strand, parse_deflines, outfmt, show_gis, num_descriptions, num_alignments, line_length, html, 
+               sorthits, sorthsps, mt_mode, remote)
   })
+  
 }
 
 shinyApp(ui, server)

@@ -1,0 +1,38 @@
+gbifID,scientificName,countryCode,country,kingdom,phylum,class,order,family,genus,species,stateProvince,locality,decimalLongitude,decimalLatitude,basisOfRecord,year,.scientificName_empty,.basisOfRecords_notStandard,.coordinates_country_inconsistent
+3745737351,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+3745737352,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2012,TRUE,TRUE,TRUE
+3745737353,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+3745737354,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737356,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+3745737355,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Ilha das Cabras/Brava,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737357,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Ponta das Canas,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737358,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737359,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Curral,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737362,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737361,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Ilha das Cabras/Brava,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737363,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Barequeçaba,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737365,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Ponta das Canas,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737367,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Ubatumirim,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737368,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Praia do Sino,NA,NA,PRESERVED_SPECIMEN,2008,TRUE,TRUE,TRUE
+3745737374,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737376,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737377,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737378,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2013,TRUE,TRUE,TRUE
+3745737396,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+3745737397,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+3745737398,Ascidiacea,BR,Brazil,Animalia,Chordata,Ascidiacea,,,,,São Paulo,Baía do Araçá,NA,NA,PRESERVED_SPECIMEN,2014,TRUE,TRUE,TRUE
+251620596,"Leucippe Pomel, 1852",BR,Brazil,Animalia,Chordata,Mammalia,,,Leucippe,,,Rio de Janeiro,NA,NA,PRESERVED_SPECIMEN,NA,TRUE,TRUE,TRUE
+4012716302,"Lysapsus bolivianus Gallardo, 1961",BR,Brazil,Animalia,Chordata,Amphibia,Anura,Hylidae,Lysapsus,Lysapsus bolivianus,Amapa,Tadpoles,NA,NA,MATERIAL_CITATION,NA,TRUE,FALSE,TRUE
+787128410,"Bobbschaefferia fluminensis Paula Couto, 1970",BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Protodidelphidae,Bobbschaefferia,Bobbschaefferia fluminensis,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128419,"Gaylordia macrocynodonta Paula Couto, 1952",BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,Gaylordia,Gaylordia macrocynodonta,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128428,"Monodelphopsis travassosi Paula Couto, 1952",BR,Brazil,Animalia,Chordata,Mammalia,,Pediomyidae,Monodelphopsis,Monodelphopsis travassosi,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128437,"Protodidelphis vanzolinii Paula Couto, 1952",BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Protodidelphidae,Protodidelphis,Protodidelphis vanzolinii,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128442,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128482,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128491,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128500,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128509,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128518,Didelphidae,BR,Brazil,Animalia,Chordata,Mammalia,Didelphimorphia,Didelphidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787128535,Borhyaenidae,BR,Brazil,Animalia,Chordata,Mammalia,,Borhyaenidae,,,Rio de Janeiro,Sao Jose de Itaborai,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+787034801,Speothos pacivorus Lund,BR,Brazil,Animalia,Chordata,Mammalia,Carnivora,Canidae,Speothos,Speothos pacivorus,Minas Gerais,"Cerca Grande,Lapa Da",NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
+786986271,"Cladocyclus gardneri Agassiz, 1841",BR,Brazil,Animalia,Chordata,,,Ichthyodectidae,Cladocyclus,Cladocyclus gardneri,Ceara,Brazil Fish,NA,NA,FOSSIL_SPECIMEN,NA,TRUE,FALSE,TRUE
