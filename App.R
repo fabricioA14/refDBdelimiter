@@ -1,11 +1,14 @@
 
 
+
+
+
+
 # List of packages to ensure are installed and loaded
-pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth','rnaturalearthdata','leaflet',
-          'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras','shiny', 'htmlwidgets',
-          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite','bdc','tools','countrycode','data.table','stringr',
-          'plotly','shinyFiles','shinyjs', 'taxize', 'taxizedb')
-#library(plyr)
+pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
+          'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
+          'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite', 'bdc', 'tools', 'countrycode', 'data.table', 'stringr',
+          'plotly', 'shinyFiles', 'shinyjs', 'taxize', 'taxizedb')
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]
@@ -17,9 +20,6 @@ if (length(vars) != 0) {
 
 # Load all the packages
 sapply(pack, require, character.only = TRUE)
-
-# Limit to process 20 GB (or adjust as needed)
-#options(shiny.maxRequestSize = 20000 * 1024^2)
 
 # Function to delete intermediate files
 delete_intermediate_files <- function(files) {
@@ -45,7 +45,6 @@ create_stacked_bar <- function(data, taxonomic_level, title) {
     plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
     layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
 }
-
 
 # UI
 ui <- fluidPage(
@@ -244,6 +243,8 @@ ui <- fluidPage(
                            actionButton("run_time", "Run Time Process", class = "btn-primary")
                   ),
                   tabPanel("Edit Map",
+                           textInput("shp_path", "Enter Shapefile Path", value = ""),
+                           actionButton("load_shp", "Load Shapefile", class = "btn-primary"),
                            actionButton("run_edit_map", "Generate Edit Map", class = "btn-primary"),
                            leafletOutput("edit_map"),
                            verbatimTextOutput("searchedValuesOutput_edit")
@@ -384,6 +385,7 @@ server <- function(input, output, session) {
   selected_occurrence_data <- reactiveVal(NULL)
   excluded_occurrence_data <- reactiveVal(NULL)
   drawn_features <- reactiveVal(NULL)  # Reactive variable to store drawn features
+  polygon_data <- reactiveVal(NULL)    # Reactive variable to store the polygon data
   
   # Pre-Treatment Process
   shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
@@ -627,6 +629,26 @@ server <- function(input, output, session) {
     })
   })
   
+  # Load Shapefile Process
+  observeEvent(input$load_shp, {
+    req(input$shp_path)
+    shapefile_path <- input$shp_path
+    if (file.exists(shapefile_path)) {
+      polygon <- tryCatch({
+        st_read(shapefile_path)
+      }, error = function(e) {
+        showNotification("Error reading shapefile", type = "error")
+        NULL
+      })
+      if (!is.null(polygon)) {
+        polygon_data(st_transform(polygon, 4326))  # Transform the CRS of the polygon to match the points
+        showNotification("Shapefile loaded successfully", type = "message")
+      }
+    } else {
+      showNotification("Shapefile not found", type = "error")
+    }
+  })
+  
   # Edit Map Process
   observeEvent(input$run_edit_map, {
     runjs("$('#run_edit_map').addClass('selected');")
@@ -653,11 +675,40 @@ server <- function(input, output, session) {
     # Convert data to sf
     sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
     
+    # Filter points within the polygon, if a polygon is loaded
+    if (!is.null(polygon_data())) {
+      sf_data <- sf_data[st_intersects(sf_data, polygon_data(), sparse = FALSE), ]
+    }
+    
+    # Check if any points remain after filtering
+    if (nrow(sf_data) == 0) {
+      showNotification("No point is inside the loaded polygon.", type = "error")
+      return()
+    }
+    
+    # Convert the filtered sf_data back to a data.frame with separate longitude and latitude columns
+    visualization <- sf_data %>%
+      st_drop_geometry() %>%               # Remove the geometry column
+      mutate(
+        decimalLongitude = st_coordinates(sf_data)[, 1],  # Extract longitude
+        decimalLatitude = st_coordinates(sf_data)[, 2]    # Extract latitude
+      )
+    
     # Define a color palette for the species
     qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = visualization$taxa)
     
-    # Leaflet map with drawing functionality
+    # Inicializa o mapa com o provedor de tiles
     map_within_sa_edit <- leaflet(visualization) %>%
+      addProviderTiles(providers$Esri.WorldStreetMap)
+    
+    # Adiciona o polígono, se existir
+    if (!is.null(polygon_data())) {
+      map_within_sa_edit <- map_within_sa_edit %>%
+        addPolygons(data = polygon_data(), color = "blue", weight = 2, fillOpacity = 0.2)
+    }
+    
+    # Adiciona os pontos e outras funcionalidades ao mapa
+    map_within_sa_edit <- map_within_sa_edit %>%
       addProviderTiles(providers$Esri.WorldStreetMap) %>%
       addCircleMarkers(
         lng = ~decimalLongitude, lat = ~decimalLatitude,
@@ -665,8 +716,7 @@ server <- function(input, output, session) {
         color = ~qual_palette(taxa),
         label = ~taxa,
         popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
-        group = ~paste(taxa, genus, family, order, class, phylum, identification_level, sep = ","),  # Include identification level in group
-        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa, genus, family, order, class, phylum, identification_level)
+        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa)
       ) %>%
       addLegend(
         position = "bottomright",
@@ -680,11 +730,6 @@ server <- function(input, output, session) {
           })
         }
       ) %>%
-      addDrawToolbar(
-        targetGroup = 'drawn',
-        editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()),
-        polylineOptions = FALSE  # Excludes the draw a line functionality
-      ) %>%
       htmlwidgets::onRender("
         function(el, x) {
           var myMap = this;
@@ -692,9 +737,9 @@ server <- function(input, output, session) {
           var uniqueTaxa = new Set(); // Use a Set to store unique taxa
     
           myMap.eachLayer(function(layer) {
-            if (layer.options && layer.options.group) {
+            if (layer.options && layer.options.layerId) {
               originalLayers[layer.options.layerId] = layer;
-              uniqueTaxa.add(layer.options.group); // Add the unique taxa
+              uniqueTaxa.add(layer.options.layerId); // Add the unique taxa
             }
           });
     
@@ -702,7 +747,7 @@ server <- function(input, output, session) {
           var selectedTaxa = Array.from(uniqueTaxa);
           selectedTaxa.forEach(function(taxon) {
             Object.values(originalLayers).forEach(function(layer) {
-              if (layer.options.group === taxon) {
+              if (layer.options.layerId === taxon) {
                 myMap.addLayer(layer);
               }
             });
@@ -749,7 +794,7 @@ server <- function(input, output, session) {
                 selectedTaxa = Array.from(uniqueTaxa);
                 selectedTaxa.forEach(function(taxon) {
                   Object.values(originalLayers).forEach(function(layer) {
-                    if (layer.options.group === taxon) {
+                    if (layer.options.layerId === taxon) {
                       myMap.addLayer(layer);
                     }
                   });
@@ -758,7 +803,7 @@ server <- function(input, output, session) {
                 var foundLayers = new Set();
                 taxaArray.forEach(function(taxon) {
                   Object.values(originalLayers).forEach(function(layer) {
-                    var layerGroup = layer.options.group;
+                    var layerGroup = layer.options.layerId;
                     var isGenusSearch = taxon.endsWith(' (genus)');
                     var isFamilySearch = taxon.endsWith(' (family)');
                     var isOrderSearch = taxon.endsWith(' (order)');
@@ -769,32 +814,32 @@ server <- function(input, output, session) {
                     if (isGenusSearch) {
                       if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('genus')) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     } else if (isFamilySearch) {
                       if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('family')) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     } else if (isOrderSearch) {
                       if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('order')) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     } else if (isClassSearch) {
                       if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('class')) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     } else if (isPhylumSearch) {
                       if (layerGroup.includes(taxonWithoutSuffix) && layerGroup.includes('phylum')) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     } else {
                       if (layerGroup.includes(taxonWithoutSuffix)) {
                         myMap.addLayer(layer);
-                        foundLayers.add(layer.options.group);
+                        foundLayers.add(layer.options.layerId);
                       }
                     }
                   });
@@ -849,13 +894,17 @@ server <- function(input, output, session) {
             legend.style.width = (maxWidth + 50) + 'px'; // Add some padding
           }
         }
-      ")
+      ") %>%
+      addDrawToolbar(
+        targetGroup = 'drawn',
+        editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()),
+        polylineOptions = FALSE  # Excludes the draw a line functionality
+      )
     
+    # Render the Leaflet map without printing any data
     output$edit_map <- renderLeaflet(map_within_sa_edit)
   })
   
-  rm(visualization, sf_data)
-  gc()
   
   # Save Data Process
   observeEvent(input$save_data, {
@@ -1111,8 +1160,6 @@ server <- function(input, output, session) {
                strand, parse_deflines, outfmt, show_gis, num_descriptions, num_alignments, line_length, html, 
                sorthits, sorthsps, mt_mode, remote)
   })
-  
 }
 
 shinyApp(ui, server)
-
