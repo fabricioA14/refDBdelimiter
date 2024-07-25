@@ -1,9 +1,5 @@
 
 
-
-
-
-
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
@@ -697,17 +693,17 @@ server <- function(input, output, session) {
     # Define a color palette for the species
     qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = visualization$taxa)
     
-    # Inicializa o mapa com o provedor de tiles
+    # Initialize the map
     map_within_sa_edit <- leaflet(visualization) %>%
       addProviderTiles(providers$Esri.WorldStreetMap)
     
-    # Adiciona o polígono, se existir
+    # Add polygon
     if (!is.null(polygon_data())) {
       map_within_sa_edit <- map_within_sa_edit %>%
         addPolygons(data = polygon_data(), color = "blue", weight = 2, fillOpacity = 0.2)
     }
     
-    # Adiciona os pontos e outras funcionalidades ao mapa
+    #Add points and the rest
     map_within_sa_edit <- map_within_sa_edit %>%
       addProviderTiles(providers$Esri.WorldStreetMap) %>%
       addCircleMarkers(
@@ -898,7 +894,7 @@ server <- function(input, output, session) {
       addDrawToolbar(
         targetGroup = 'drawn',
         editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()),
-        polylineOptions = FALSE  # Excludes the draw a line functionality
+        polylineOptions = FALSE 
       )
     
     # Render the Leaflet map without printing any data
