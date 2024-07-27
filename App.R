@@ -285,9 +285,9 @@ ui <- fluidPage(
                   tabPanel("Taxonomic Assignment",
                            textInput("directory", "Directory:", value = ""),
                            textInput("database_file", "Database File:", value = ""),
-                           textInput("query", "Query File:", value = "otus.fasta"),  # Novo campo para query
-                           textInput("task", "Task:", value = "megablast"),          # Novo campo para task
-                           textInput("out", "Output File:", value = "blast.txt"),    # Novo campo para out
+                           textInput("query", "Query File:", value = "otus.fasta"),  
+                           textInput("task", "Task:", value = "megablast"),          
+                           textInput("out", "Output File:", value = "blast.txt"),    
                            numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
                            numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
                            numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
@@ -295,51 +295,51 @@ ui <- fluidPage(
                            numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
                            numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
                            numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
-                           numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), # Novo campo para penalty
-                           numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   # Novo campo para reward
-                           numericInput("evalue", "E-value:", value = NA, min = 0),                       # Novo campo para evalue
-                           numericInput("word_size", "Word Size:", value = NA, min = 1),                  # Novo campo para word_size
-                           numericInput("gapopen", "Gap Open Penalty:", value = NA, min = 0),             # Novo campo para gapopen
-                           numericInput("gapextend", "Gap Extend Penalty:", value = NA, min = 0),         # Novo campo para gapextend
-                           numericInput("max_hsps", "Max HSPs:", value = NA, min = 1),                    # Novo campo para max_hsps
-                           numericInput("xdrop_ungap", "Xdrop Ungap:", value = NA, min = 0),              # Novo campo para xdrop_ungap
-                           numericInput("xdrop_gap", "Xdrop Gap:", value = NA, min = 0),                  # Novo campo para xdrop_gap
-                           numericInput("xdrop_gap_final", "Xdrop Gap Final:", value = NA, min = 0),      # Novo campo para xdrop_gap_final
-                           numericInput("searchsp", "Search Space:", value = NA, min = 0),                # Novo campo para searchsp
-                           numericInput("sum_stats", "Sum Stats:", value = NA),                           # Novo campo para sum_stats
-                           numericInput("no_greedy", "No Greedy:", value = NA),                           # Novo campo para no_greedy
-                           numericInput("min_raw_gapped_score", "Min Raw Gapped Score:", value = NA, min = 0), # Novo campo para min_raw_gapped_score
-                           textInput("template_type", "Template Type:", value = ""),                      # Novo campo para template_type
-                           numericInput("template_length", "Template Length:", value = NA, min = 0),      # Novo campo para template_length
-                           textInput("dust", "DUST Options:", value = ""),                                # Novo campo para dust
-                           textInput("filtering_db", "Filtering DB:", value = ""),                        # Novo campo para filtering_db
-                           textInput("window_masker_taxid", "Window Masker Taxid:", value = ""),          # Novo campo para window_masker_taxid
-                           textInput("window_masker_db", "Window Masker DB:", value = ""),                # Novo campo para window_masker_db
-                           numericInput("soft_masking", "Soft Masking:", value = NA),                     # Novo campo para soft_masking
-                           numericInput("ungapped", "Ungapped:", value = NA),                             # Novo campo para ungapped
-                           numericInput("culling_limit", "Culling Limit:", value = NA, min = 1),          # Novo campo para culling_limit
-                           numericInput("best_hit_overhang", "Best Hit Overhang:", value = NA, min = 0),  # Novo campo para best_hit_overhang
-                           numericInput("best_hit_score_edge", "Best Hit Score Edge:", value = NA, min = 0), # Novo campo para best_hit_score_edge
-                           numericInput("subject_besthit", "Subject Besthit:", value = NA),               # Novo campo para subject_besthit
-                           numericInput("window_size", "Window Size:", value = NA, min = 1),              # Novo campo para window_size
-                           numericInput("off_diagonal_range", "Off Diagonal Range:", value = NA, min = 0),# Novo campo para off_diagonal_range
-                           numericInput("use_index", "Use Index:", value = NA),                           # Novo campo para use_index
-                           textInput("index_name", "Index Name:", value = ""),                            # Novo campo para index_name
-                           numericInput("lcase_masking", "Lcase Masking:", value = NA),                   # Novo campo para lcase_masking
-                           textInput("query_loc", "Query Loc:", value = ""),                              # Novo campo para query_loc
-                           textInput("strand", "Strand:", value = ""),                                    # Novo campo para strand
-                           numericInput("parse_deflines", "Parse Deflines:", value = NA),                 # Novo campo para parse_deflines
-                           numericInput("outfmt", "Output Format:", value = 6),                           # Campo para outfmt com valor padrão 6
-                           numericInput("show_gis", "Show GIS:", value = NA),                             # Novo campo para show_gis
-                           numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    # Novo campo para num_descriptions
-                           numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),        # Novo campo para num_alignments
-                           numericInput("line_length", "Line Length:", value = NA, min = 1),              # Novo campo para line_length
-                           numericInput("html", "HTML:", value = NA),                                     # Novo campo para html
-                           textInput("sorthits", "Sort Hits:", value = ""),                               # Novo campo para sorthits
-                           textInput("sorthsps", "Sort HSPs:", value = ""),                               # Novo campo para sorthsps
-                           numericInput("mt_mode", "MT Mode:", value = NA, min = 0),                      # Novo campo para mt_mode
-                           numericInput("remote", "Remote:", value = NA),                                 # Novo campo para remote
-                           actionButton("run_blast", "Run BLAST", class = "btn-primary")                  # Botão para executar o BLAST
+                           numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), 
+                           numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   
+                           numericInput("evalue", "E-value:", value = NA, min = 0),                      
+                           numericInput("word_size", "Word Size:", value = NA, min = 1),                 
+                           numericInput("gapopen", "Gap Open Penalty:", value = NA, min = 0),             
+                           numericInput("gapextend", "Gap Extend Penalty:", value = NA, min = 0),         
+                           numericInput("max_hsps", "Max HSPs:", value = NA, min = 1),                    
+                           numericInput("xdrop_ungap", "Xdrop Ungap:", value = NA, min = 0),             
+                           numericInput("xdrop_gap", "Xdrop Gap:", value = NA, min = 0),                  
+                           numericInput("xdrop_gap_final", "Xdrop Gap Final:", value = NA, min = 0),      
+                           numericInput("searchsp", "Search Space:", value = NA, min = 0),                
+                           numericInput("sum_stats", "Sum Stats:", value = NA),                          
+                           numericInput("no_greedy", "No Greedy:", value = NA),                          
+                           numericInput("min_raw_gapped_score", "Min Raw Gapped Score:", value = NA, min = 0), 
+                           textInput("template_type", "Template Type:", value = ""),                      
+                           numericInput("template_length", "Template Length:", value = NA, min = 0),      
+                           textInput("dust", "DUST Options:", value = ""),                               
+                           textInput("filtering_db", "Filtering DB:", value = ""),                        
+                           textInput("window_masker_taxid", "Window Masker Taxid:", value = ""),          
+                           textInput("window_masker_db", "Window Masker DB:", value = ""),                
+                           numericInput("soft_masking", "Soft Masking:", value = NA),                     
+                           numericInput("ungapped", "Ungapped:", value = NA),                             
+                           numericInput("culling_limit", "Culling Limit:", value = NA, min = 1),          
+                           numericInput("best_hit_overhang", "Best Hit Overhang:", value = NA, min = 0),  
+                           numericInput("best_hit_score_edge", "Best Hit Score Edge:", value = NA, min = 0), 
+                           numericInput("subject_besthit", "Subject Besthit:", value = NA),               
+                           numericInput("window_size", "Window Size:", value = NA, min = 1),              
+                           numericInput("off_diagonal_range", "Off Diagonal Range:", value = NA, min = 0),
+                           numericInput("use_index", "Use Index:", value = NA),                           
+                           textInput("index_name", "Index Name:", value = ""),                            
+                           numericInput("lcase_masking", "Lcase Masking:", value = NA),                   
+                           textInput("query_loc", "Query Loc:", value = ""),                              
+                           textInput("strand", "Strand:", value = ""),                                   
+                           numericInput("parse_deflines", "Parse Deflines:", value = NA),                
+                           numericInput("outfmt", "Output Format:", value = 6),                           
+                           numericInput("show_gis", "Show GIS:", value = NA),                            
+                           numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    
+                           numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),       
+                           numericInput("line_length", "Line Length:", value = NA, min = 1),              
+                           numericInput("html", "HTML:", value = NA),                                   
+                           textInput("sorthits", "Sort Hits:", value = ""),                               
+                           textInput("sorthsps", "Sort HSPs:", value = ""),                              
+                           numericInput("mt_mode", "MT Mode:", value = NA, min = 0),                   
+                           numericInput("remote", "Remote:", value = NA),                                 
+                           actionButton("run_blast", "Run BLAST", class = "btn-primary")                  
                   )
       )
     ),
