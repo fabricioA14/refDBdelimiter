@@ -1,4 +1,5 @@
 
+
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
@@ -245,6 +246,7 @@ ui <- fluidPage(
                            verbatimTextOutput("searchedValuesOutput_edit")
                   ),
                   tabPanel("Save Data",
+                           checkboxInput("condition", "Genus Flexibility:", TRUE),
                            radioButtons("save_option", "Save Data:",
                                         choices = c("selected_occurrence_data", "excluded_occurrence_data", "both")),
                            textInput("save_path_selected", "Save Path for Selected Data:", "selected_data"),
@@ -259,6 +261,7 @@ ui <- fluidPage(
                            actionButton("save_data", "Save Data", class = "btn-primary")
                   ),
                   tabPanel("Make Database",
+                           checkboxInput("condition", "Genus Flexibility:", TRUE),
                            textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
                            textInput("gbif_database", "GBIF Database:", value = "gbif_taxa_dataset.txt"),
                            textInput("final_output_database", "Final Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
@@ -704,7 +707,7 @@ server <- function(input, output, session) {
         addPolygons(data = polygon_data(), color = "blue", weight = 2, fillOpacity = 0.2)
     }
     
-    #Map 
+    # Map
     map_within_sa_edit <- map_within_sa_edit %>%
       addProviderTiles(providers$Esri.WorldStreetMap) %>%
       addCircleMarkers(
@@ -713,7 +716,7 @@ server <- function(input, output, session) {
         color = ~qual_palette(taxa),
         label = ~taxa,
         popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
-        layerId = ~paste0(decimalLongitude, decimalLatitude, taxa)
+        layerId = ~paste0(taxa)
       ) %>%
       addLegend(
         position = "bottomright",
@@ -905,6 +908,7 @@ server <- function(input, output, session) {
   observeEvent(input$save_data, {
     runjs("$('#save_data').addClass('selected');")
     save_option <- input$save_option
+    condition <- input$condition
     
     # Insert the logic for the Save Data input here
     time_cleaned_data <- time_cleaned()
@@ -925,16 +929,20 @@ server <- function(input, output, session) {
         TRUE ~ "unknown"
       ))
     
-    #visualization <- visualization %>% rename(taxa = scientificName_updated)
-    
     # Convert data to sf
     sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
     
     # Check if the updatedFeatures.RData file exists in the current working directory
     if (!file.exists("updatedFeatures.RData")) {
-      # Get unique species names and collapse into a string
-      unique_taxa <- unique(visualization$taxa)
-      collapsed_string <- paste(unique_taxa, collapse = "|")
+      if (condition) {
+        species_chunks <- unique(visualization$taxa[str_detect(visualization$taxa, "\\s")])
+        genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
+        collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
+      } else {
+        species_chunks <- unique(visualization$taxa[str_detect(visualization$taxa, "\\s")])
+        species_chunks <- gsub("\\s", "_", species_chunks)
+        collapsed_string <- paste0(paste(species_chunks, collapse = "|"), "|")
+      }
       
       # Write collapsed string to file
       writeLines(collapsed_string, "gbif_taxa_dataset.txt")
@@ -989,9 +997,15 @@ server <- function(input, output, session) {
     selected_occurrence_data$decimalLatitude <- coords[, "Y"]
     selected_occurrence_data <- selected_occurrence_data %>% st_drop_geometry()
     
-    # Get unique species names and collapse into a string
-    unique_taxa <- unique(selected_occurrence_data$taxa)
-    collapsed_string <- paste(unique_taxa, collapse = "|")
+    if (condition) {
+      species_chunks <- unique(selected_occurrence_data$taxa[str_detect(selected_occurrence_data$taxa, "\\s")])
+      genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
+      collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
+    } else {
+      species_chunks <- unique(selected_occurrence_data$taxa[str_detect(selected_occurrence_data$taxa, "\\s")])
+      species_chunks <- gsub("\\s", "_", species_chunks)
+      collapsed_string <- paste0(paste(species_chunks, collapse = "|"), "|")
+    }
     
     # Write collapsed string to file
     writeLines(collapsed_string, "gbif_taxa_dataset.txt")
@@ -1026,6 +1040,7 @@ server <- function(input, output, session) {
     logfile <- input$logfile
     taxid <- input$taxid
     taxid_map <- input$taxid_map
+    condition <- input$condition
     
     # Define intermediate parameters
     database_cleaned <- "ncbiChordataToGbif.fasta"
@@ -1037,9 +1052,9 @@ server <- function(input, output, session) {
     #delete_intermediate_files(c(raw_database))
     
     # Call the function subset_ncbi_based_on_gbif
-    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database)
+    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database, condition)
     # Delete intermediate file
-    delete_intermediate_files(c(database_cleaned))
+    #delete_intermediate_files(c(database_cleaned))
     
     # Call the function create_blast_db
     create_blast_db(final_output_database, parse_seqids, database_type, title, out, hash_index, mask_data, mask_id, mask_desc, gi_mask, gi_mask_name, max_file_sz, logfile, taxid, taxid_map)
