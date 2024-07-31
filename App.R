@@ -1,10 +1,9 @@
 
-
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
           'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite', 'bdc', 'tools', 'countrycode', 'data.table', 'stringr',
-          'plotly', 'shinyFiles', 'shinyjs', 'taxize', 'taxizedb')
+          'plotly', 'shinyFiles', 'shinyjs', 'taxize', 'taxizedb', 'base64enc')
 
 # Check for packages that are not installed
 vars <- pack[!(pack %in% installed.packages()[, "Package"])]
@@ -74,6 +73,7 @@ ui <- fluidPage(
         font-weight: bold;
       }
       .title-panel {
+        position: relative;
         text-align: center;
         width: 100%;
       }
@@ -96,6 +96,22 @@ ui <- fluidPage(
       .shiny-input-container {
         margin-top: 15px;
       }
+      .output-tab {
+        position: relative;
+      }
+      .output-tab::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        opacity: 0.15;
+        z-index: -1;
+      }
     ")),
     tags$style(type = "text/css", "#map {height: calc(90vh - 20px) !important;}"),
     tags$style(type = "text/css", "#edit_map {height: calc(90vh - 20px) !important;}"),
@@ -103,11 +119,12 @@ ui <- fluidPage(
   ),
   
   div(class = "title-panel", 
-      titlePanel(
-        tags$div(
-          "Data Cleaning Processes",
-          style = "display: inline-block; vertical-align: middle;"
-        )
+      tags$div(
+        tags$img(src = "data:image/png;base64,", height = "80px", style = "opacity: 0.12; display: inline-block; vertical-align: middle;", id = "image_base64")
+      ),
+      tags$div(
+        "refDBdelimiter",
+        style = "position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: bold; color: black; z-index: 1000; background-color: rgba(255, 255, 255, 0.5); padding: 5px; border-radius: 5px;"
       )
   ),
   
@@ -292,12 +309,22 @@ ui <- fluidPage(
                            textInput("task", "Task:", value = "megablast"),          
                            textInput("out", "Output File:", value = "blast.txt"),    
                            numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
-                           numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
-                           numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
+                           #numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
+                           sliderInput("perc_identity", "Percentage Identity:",
+                                       min = 0, max = 100, value = 95, step = 0.5),
+                           #numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
+                           sliderInput("qcov_hsp_perc", "Query Coverage HSP Percentage:",
+                                       min = 0, max = 100, value = 95, step = 0.5),
+                           #numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
+                           sliderInput("specie_threshold", "Specie Threshold:",
+                                       min = 0, max = 100, value = 99, step = 0.5),
+                           #numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
+                           sliderInput("genus_threshold", "Genus Threshold:",
+                                       min = 0, max = 100, value = 97, step = 0.5),
+                           #numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
+                           sliderInput("family_threshold", "Family Threshold:",
+                                       min = 0, max = 100, value = 95, step = 0.5),
                            numericInput("num_threads", "Number of Threads:", value = 6, min = 1),
-                           numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
-                           numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
-                           numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
                            numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), 
                            numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   
                            numericInput("evalue", "E-value:", value = NA, min = 0),                      
@@ -350,28 +377,39 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Pre-Treatment Output",
-                 plotlyOutput("pre_input_plot"),
-                 plotlyOutput("pre_output_plot")
+                 div(class = "output-tab",
+                     plotlyOutput("pre_input_plot"),
+                     plotlyOutput("pre_output_plot")
+                 )
         ),
         tabPanel("Taxonomy Output",
-                 plotlyOutput("tax_input_plot"),
-                 plotlyOutput("tax_output_plot")
+                 div(class = "output-tab",
+                     plotlyOutput("tax_input_plot"),
+                     plotlyOutput("tax_output_plot")
+                 )
         ),
         tabPanel("Space Output",
-                 plotlyOutput("space_input_plot"),
-                 plotlyOutput("space_output_plot")
+                 div(class = "output-tab",
+                     plotlyOutput("space_input_plot"),
+                     plotlyOutput("space_output_plot")
+                 )
         ),
         tabPanel("Time Output",
-                 plotlyOutput("time_input_plot"),
-                 plotlyOutput("time_output_plot")
+                 div(class = "output-tab",
+                     plotlyOutput("time_input_plot"),
+                     plotlyOutput("time_output_plot")
+                 )
         ),
         tabPanel("Edit Map Output",
-                 leafletOutput("edit_map")
+                 div(class = "output-tab",
+                     leafletOutput("edit_map")
+                 )
         )
       )
     )
   )
 )
+
 
 # Define server logic
 server <- function(input, output, session) {
@@ -382,8 +420,18 @@ server <- function(input, output, session) {
   time_cleaned <- reactiveVal(NULL)
   selected_occurrence_data <- reactiveVal(NULL)
   excluded_occurrence_data <- reactiveVal(NULL)
-  drawn_features <- reactiveVal(NULL)  # Reactive variable to store drawn features
-  polygon_data <- reactiveVal(NULL)    # Reactive variable to store the polygon data
+  drawn_features <- reactiveVal(NULL)
+  polygon_data <- reactiveVal(NULL)
+  
+  observe({
+    img_path <- "C:/Users/fabricio/Desktop/fabricioA14/refDBdelimiter/www/refdb.png"
+    if (file.exists(img_path)) {
+      img_base64 <- base64enc::dataURI(file = img_path, mime = "image/png")
+      runjs(sprintf('document.getElementById("image_base64").src = "%s";', img_base64))
+    } else {
+      showNotification("Image not found", type = "error")
+    }
+  })
   
   # Pre-Treatment Process
   shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
@@ -1054,7 +1102,7 @@ server <- function(input, output, session) {
     # Call the function subset_ncbi_based_on_gbif
     subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database, condition)
     # Delete intermediate file
-    #delete_intermediate_files(c(database_cleaned))
+    delete_intermediate_files(c(database_cleaned))
     
     # Call the function create_blast_db
     create_blast_db(final_output_database, parse_seqids, database_type, title, out, hash_index, mask_data, mask_id, mask_desc, gi_mask, gi_mask_name, max_file_sz, logfile, taxid, taxid_map)
