@@ -194,7 +194,7 @@ ui <- fluidPage(
                                                       "Family" = "family",
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
-                                       selected = "class"),
+                                       selected = "species"),
                            checkboxGroupInput("tests", "Select spatial tests:",
                                               choices = list(
                                                 "capitals" = "capitals",
@@ -216,7 +216,7 @@ ui <- fluidPage(
                            numericInput("outliers_td", "Minimum distance of a record to all other records of a species to be identified as outlier (Km):", value = 1000, min = 0),
                            numericInput("outliers_size", "Minimum number of records in a dataset to run the taxon-specific outlier test:", value = 10, min = 0),
                            numericInput("range_rad", "Range radius:", value = 0, min = 0),
-                           numericInput("zeros_rad", "Radius for zeros (decimal degrees):", value = 0.5, min = 0),
+                           numericInput("zeros_rad", "Radius for zeros (decimal degrees):", value = 0.5),
                            selectInput("taxonomic_level_space", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
@@ -256,6 +256,7 @@ ui <- fluidPage(
                            actionButton("run_time", "Run Time Process", class = "btn-primary")
                   ),
                   tabPanel("Edit Map",
+                           checkboxInput("database_condition", "Are you building a Metabarcoding Database?", TRUE), # Adicionado aqui
                            textInput("shp_path", "Enter Shapefile Path", value = ""),
                            actionButton("load_shp", "Load Shapefile", class = "btn-primary"),
                            actionButton("run_edit_map", "Generate Edit Map", class = "btn-primary"),
@@ -739,6 +740,9 @@ server <- function(input, output, session) {
         decimalLongitude = st_coordinates(sf_data)[, 1],  # Extract longitude
         decimalLatitude = st_coordinates(sf_data)[, 2]    # Extract latitude
       )
+    
+    visualization <- visualization %>%
+      distinct(taxa, .keep_all = TRUE)
     
     time_cleaned(visualization)
     
