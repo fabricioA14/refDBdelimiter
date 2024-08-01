@@ -1,6 +1,4 @@
 
-
-
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
@@ -35,13 +33,43 @@ scrollable_legend_css <- "
 "
 
 # Function to create interactive stacked bar plot
-create_stacked_bar <- function(data, taxonomic_level, title) {
+create_stacked_bar <- function(data, taxonomic_level, title, legend_title) {
+  # Capitalize the first letter of the legend title
+  legend_title <- str_to_title(legend_title)
+  
+  # Replace empty strings and NA with "Empty"
+  data[[taxonomic_level]][data[[taxonomic_level]] == ""] <- "Empty"
+  data[[taxonomic_level]][is.na(data[[taxonomic_level]])] <- "Empty"
+  
+  # Order the taxonomic levels, keeping "Empty" at the end
+  levels_ordered <- c("Empty", rev(sort(unique(data[[taxonomic_level]][data[[taxonomic_level]] != "Empty"]))))
+  data[[taxonomic_level]] <- factor(data[[taxonomic_level]], levels = levels_ordered)
+  
+  
+  # Define colors, assigning "grey60" to "Empty"
+  colors <- c(RColorBrewer::brewer.pal(n = length(levels_ordered) - 1, name = "Set3"))
+  
   data %>%
     group_by(year, !!sym(taxonomic_level)) %>%
     summarise(count = n(), .groups = 'drop') %>%
-    plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = "Set3") %>%
-    layout(title = title, barmode = 'stack', xaxis = list(title = 'Year'), yaxis = list(title = 'Count'))
+    plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = colors) %>%
+    layout(
+      title = list(text = title, font = list(family = 'Comfortaa', size = 20)),
+      barmode = 'stack',
+      xaxis = list(title = 'Year', titlefont = list(family = 'Comfortaa', size = 18), tickfont = list(family = 'Comfortaa')),
+      yaxis = list(title = 'Count', titlefont = list(family = 'Comfortaa', size = 18), tickfont = list(family = 'Comfortaa')),
+      legend = list(
+        title = list(
+          text = paste0("   ", legend_title),
+          font = list(family = 'Comfortaa', size = 14)
+        ),
+        font = list(family = 'Comfortaa', size = 12),
+        orientation = "v"
+      ),
+      margin = list(t = 80)  # Add top margin for the title
+    )
 }
+
 
 # UI
 ui <- fluidPage(
@@ -134,9 +162,24 @@ ui <- fluidPage(
     sidebarPanel(
       tabsetPanel(id = "tabs",
                   tabPanel("Pre-Treatment Process",
-                           numericInput("nrows", "Number of rows to read:", value = Inf, min = 1),
-                           textInput("fields", "Columns to import (comma-separated):", 
-                                     value = "gbifID,kingdom,phylum,class,order,family,genus,species,scientificName,countryCode,stateProvince,locality,decimalLongitude,decimalLatitude,basisOfRecord,year"),
+                           textInput("input_file", "Input File Path:", value = ""),
+                           selectInput("nrows_select", "Number of rows to read:", 
+                                       choices = c("All" = "All", "Specific number" = "Specific"), 
+                                       selected = "All"),
+                           conditionalPanel(
+                             condition = "input.nrows_select == 'Specific'",
+                             numericInput("nrows", "Specify number of rows:", value = 1000, min = 1)
+                           ),
+                           selectInput("additional_fields", "Additional Columns to import:",
+                                       choices = c("datasetKey", "occurrenceID", "infraspecificEpithet", "taxonRank", 
+                                                   "verbatimScientificName", "verbatimScientificNameAuthorship", "occurrenceStatus", 
+                                                   "individualCount", "publishingOrgKey", "coordinateUncertaintyInMeters", 
+                                                   "coordinatePrecision", "elevation", "elevationAccuracy", "depth", "depthAccuracy", 
+                                                   "eventDate", "day", "month", "taxonKey", "speciesKey", "institutionCode", 
+                                                   "collectionCode", "catalogNumber", "recordNumber", "identifiedBy", "dateIdentified", 
+                                                   "license", "rightsHolder", "recordedBy", "typeStatus", "establishmentMeans", 
+                                                   "lastInterpreted", "mediaType", "issue"),
+                                       multiple = TRUE),
                            selectInput("taxonomic_level_pre", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
@@ -164,7 +207,15 @@ ui <- fluidPage(
                            sliderInput("suggestion_distance", "Distance between the searched and suggested names:", min = 0, max = 1, value = 0.9, step = 0.01),
                            textInput("db", "Taxonomic Database:", value = "gbif"),
                            textInput("rank_name", "Taxonomic Rank Name:", value = "Chordata"),
-                           textInput("rank", "Taxonomic Rank:", value = "Phylum"),
+                           #textInput("rank", "Taxonomic Rank:", value = "Phylum"),
+                           selectInput("rank", "Taxonomic Rank:", 
+                                       choices = list("Phylum" = "phylum",
+                                                      "Class" = "class",
+                                                      "Order" = "order",
+                                                      "Family" = "family",
+                                                      "Genus" = "genus",
+                                                      "Species" = "species"),
+                                       selected = "phylum"),
                            selectInput("taxonomic_level_tax", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
@@ -173,8 +224,8 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           checkboxInput("parallel", "Use parallel processing?", FALSE),
-                           numericInput("ncores", "Number of cores:", value = 2, min = 1),
+                           checkboxInput("parallel", "Use parallel processing?", TRUE),
+                           numericInput("ncores", "Number of cores:", value = 4, min = 1),
                            checkboxInput("export_accepted", "Export accepted names?", FALSE),
                            textInput("save_path_tax", "Save Path for Taxonomy:", "2_bdc_taxonomy_cleaned"),
                            checkboxGroupInput("formats_tax", "Select Output Formats:",
@@ -283,9 +334,9 @@ ui <- fluidPage(
                            checkboxInput("condition", "Genus Flexibility:", TRUE),
                            textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
                            textInput("gbif_database", "GBIF Database:", value = ""),
-                           textInput("final_output_database", "Final Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
+                           textInput("final_output_database", "Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
+                           checkboxInput("pattern_unverified", "Exclude UNVERIFIED Sequences", value = TRUE),
                            numericInput("min_sequence_length", "Minimum Sequence Length:", value = 100, min = 1),
-                           textInput("pattern", "Pattern:", value = "UNVERIFIED"),
                            checkboxInput("parse_seqids", "Parse SeqIDs:", TRUE),
                            selectInput("database_type", "Database Type:", choices = c("nucl", "prot"), selected = "nucl"),
                            textInput("title", "Title:", value = "local_database"),
@@ -305,7 +356,6 @@ ui <- fluidPage(
                   tabPanel("Taxonomic Assignment",
                            textInput("directory", "Directory:", value = ""),
                            textInput("database_file", "Database File:", value = ""),
-                           textInput("otu_table", "OTU Table:", value = ""),
                            textInput("query", "Query File:", value = "otus.fasta"),  
                            textInput("task", "Task:", value = "megablast"),          
                            textInput("out", "Output File:", value = "blast.txt"),    
@@ -350,7 +400,7 @@ ui <- fluidPage(
                            textInput("query_loc", "Query Loc:", value = ""),                              
                            textInput("strand", "Strand:", value = ""),                                   
                            numericInput("parse_deflines", "Parse Deflines:", value = NA),                
-                           #numericInput("outfmt", "Output Format:", value = 6),                           
+                           numericInput("outfmt", "Output Format:", value = 6),                           
                            numericInput("show_gis", "Show GIS:", value = NA),                            
                            numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    
                            numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),       
@@ -424,28 +474,20 @@ server <- function(input, output, session) {
   })
   
   # Pre-Treatment Process
-  shinyFileChoose(input, "file1", roots = c(wd = getwd()), session = session)
-  
-  file_path <- reactiveVal(NULL)
-  
-  observeEvent(input$file1, {
-    if (!is.null(input$file1)) {
-      file_selected <- parseFilePaths(c(wd = getwd()), input$file1)
-      file_path(as.character(file_selected$datapath[1]))
-      runjs("$('#file1').addClass('selected');")
-    }
-  })
-  
   observeEvent(input$run, {
-    if (is.null(file_path()) || file_path() == "")
+    if (input$input_file == "")
       return(NULL)
     
     runjs("$('#run').addClass('selected');")
     
-    nrows <- if (input$nrows == Inf) Inf else input$nrows
-    fields <- strsplit(input$fields, ",")[[1]]
+    nrows <- if (input$nrows_select == "All") Inf else as.numeric(input$nrows)
+    default_fields <- c("gbifID", "kingdom", "phylum", "class", "order", "family", "genus", "species", 
+                        "scientificName", "countryCode", "stateProvince", "locality", "decimalLongitude", 
+                        "decimalLatitude", "basisOfRecord", "year")
+    additional_fields <- input$additional_fields
+    fields <- c(default_fields, additional_fields)
     
-    data <- fread(file_path(), select = fields, nrows = nrows)
+    data <- fread(input$input_file, select = fields, nrows = nrows)
     
     dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
       bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
@@ -496,11 +538,11 @@ server <- function(input, output, session) {
     save_occurrence_data(pre_filtered, input$save_path_pre, formats = input$formats)
     
     output$pre_input_plot <- renderPlotly({
-      create_stacked_bar(data, input$taxonomic_level_pre, "Raw Dataset by Year and Taxonomic Level")
+      create_stacked_bar(data, input$taxonomic_level_pre, "Raw Dataset by Year and Taxonomic Level", input$taxonomic_level_pre)
     })
     
     output$pre_output_plot <- renderPlotly({
-      create_stacked_bar(pre_filtered, input$taxonomic_level_pre, "Pre-Treated Dataset by Year and Taxonomic Level")
+      create_stacked_bar(pre_filtered, input$taxonomic_level_pre, "Pre-Treated Dataset by Year and Taxonomic Level", input$taxonomic_level_pre)
     })
   })
   
@@ -553,11 +595,11 @@ server <- function(input, output, session) {
     save_occurrence_data(taxonomy_cleaned_data, input$save_path_tax, formats = input$formats_tax)
     
     output$tax_input_plot <- renderPlotly({
-      create_stacked_bar(pre_filtered, input$taxonomic_level_tax, "Pre-Treated Dataset by Year and Taxonomic Level")
+      create_stacked_bar(pre_filtered, input$taxonomic_level_tax, "Pre-Treated Dataset by Year and Taxonomic Level", input$taxonomic_level_tax)
     })
     
     output$tax_output_plot <- renderPlotly({
-      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_tax, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level")
+      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_tax, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_tax)
     })
   })
   
@@ -612,11 +654,11 @@ server <- function(input, output, session) {
     save_occurrence_data(space_cleaned_data, input$save_path_space, formats = input$formats_space)
     
     output$space_input_plot <- renderPlotly({
-      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_space, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level")
+      create_stacked_bar(taxonomy_cleaned_data, input$taxonomic_level_space, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_space)
     })
     
     output$space_output_plot <- renderPlotly({
-      create_stacked_bar(space_cleaned_data, input$taxonomic_level_space, "Spatially-Cleaned Dataset by Year and Taxonomic Level")
+      create_stacked_bar(space_cleaned_data, input$taxonomic_level_space, "Spatially-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_space)
     })
   })
   
@@ -657,11 +699,11 @@ server <- function(input, output, session) {
     save_occurrence_data(time_cleaned_data, input$save_path_time, formats = input$formats_time)
     
     output$time_input_plot <- renderPlotly({
-      create_stacked_bar(space_cleaned_data, input$taxonomic_level_time, "Spatially-Cleaned Dataset by Year and Taxonomic Level")
+      create_stacked_bar(space_cleaned_data, input$taxonomic_level_time, "Spatially-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_time)
     })
     
     output$time_output_plot <- renderPlotly({
-      create_stacked_bar(time_cleaned_data, input$taxonomic_level_time, "Time-Cleaned Dataset by Year and Taxonomic Level")
+      create_stacked_bar(time_cleaned_data, input$taxonomic_level_time, "Time-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_time)
     })
   })
   
@@ -1066,7 +1108,7 @@ server <- function(input, output, session) {
     gbif_database <- input$gbif_database
     final_output_database <- input$final_output_database
     min_sequence_length <- input$min_sequence_length
-    pattern <- input$pattern
+    pattern <- if (input$pattern_unverified) "UNVERIFIED" else ""
     parse_seqids <- input$parse_seqids
     database_type <- input$database_type
     title <- input$title
@@ -1144,7 +1186,6 @@ server <- function(input, output, session) {
   observeEvent(input$run_blast, {
     Directory <- input$directory
     Database_File <- input$database_file
-    otu_table <- input$otu_table
     query <- input$query
     task <- input$task
     out <- input$out
@@ -1189,7 +1230,7 @@ server <- function(input, output, session) {
     query_loc <- if (input$query_loc == "") NULL else input$query_loc
     strand <- if (input$strand == "") NULL else input$strand
     parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
-    outfmt <- "6"
+    outfmt <- input$outfmt
     show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
     num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
     num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
@@ -1200,7 +1241,7 @@ server <- function(input, output, session) {
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    blast_gibi(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    blast_gibi(Directory, Database_File, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
