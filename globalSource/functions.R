@@ -180,13 +180,13 @@ format_ncbi_database <- function(raw_database, database_cleaned, min_sequence_le
 }
 
 subset_ncbi_based_on_gbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
-  # Truncar o arquivo de saída no início para garantir que ele comece vazio
-  file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
+
+    file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
   close(fileConn)
   
   if (condition) {
-    # Primeiro bloco de código (executado quando condition é TRUE)
+    # If condition is TRUE:
     system(paste0("
       wsl names=$(<", gbif_database ,")
 
@@ -244,7 +244,7 @@ subset_ncbi_based_on_gbif <- function(gbif_database, cleaned_ncbi_database, ncbi
     "))
     
   } else {
-    # Segundo bloco de código (executado quando condition é FALSE)
+    # if FALSE:
     system(paste0("
       wsl names=$(<", gbif_database ,")
 
@@ -286,6 +286,43 @@ subset_ncbi_based_on_gbif <- function(gbif_database, cleaned_ncbi_database, ncbi
   system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
 }
 
+ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_on_gbif) {
+  
+  file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
+  fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
+  close(fileConn)
+  
+  system(paste0("
+    wsl 
+
+    # Function to replace spaces with underscores
+    replace_spaces_with_underscores() {
+        sed 's/ /_/g'
+    }
+
+    # Function to append unique numbered sequences based on the entire header string
+    append_unique_numbered_sequences() {
+        awk '
+            /^>/ {
+                header = substr($0, 2)  # Remove the initial >
+                if (!(header in seen)) {
+                    seen[header] = 1
+                } else {
+                    seen[header]++
+                }
+                print \">\" seen[header] \"_\" header
+                getline
+                print
+            }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
+    }
+
+    # Append unique numbered sequences
+    append_unique_numbered_sequences
+  "))
+  
+  # Add the sed command to remove trailing underscores
+  system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
+}
 
 create_blast_db <- function(database, parse_seqids = T, database_type = "nucl", title = "local_database", out = NULL, hash_index = FALSE, mask_data = NULL,  mask_id = NULL, mask_desc = NULL, gi_mask = FALSE,
                             gi_mask_name = NULL, max_file_sz = NULL, logfile = NULL, taxid = NULL, taxid_map = NULL) {
@@ -297,7 +334,7 @@ create_blast_db <- function(database, parse_seqids = T, database_type = "nucl", 
   system(command)
 }
 
-blast_gibi <- function(Directory, Database_File, query = "otus.fasta", task = "megablast", out = "blast.txt", 
+blast_gibi <- function(Directory, Database_File, otu_table = "otu_table.txt", query = "otus.fasta", task = "megablast", out = "blast.txt", 
                        max_target_seqs = 50, perc_identity = 95, qcov_hsp_perc = 95, num_threads = 6, 
                        Specie_Threshold = 99, Genus_Threshold = 97, Family_Threshold = 95, 
                        penalty = NULL, reward = NULL, evalue = NULL, word_size = NULL, gapopen = NULL, 
@@ -315,7 +352,7 @@ blast_gibi <- function(Directory, Database_File, query = "otus.fasta", task = "m
   
   linux_path <- gsub("C:/", "/mnt/c/", Directory)
   
-  # Construir a string de parâmetros opcionais
+  # Optional Parameters
   optional_params <- ""
   add_param <- function(param, value) {
     if (!is.null(value)) {
@@ -371,19 +408,19 @@ blast_gibi <- function(Directory, Database_File, query = "otus.fasta", task = "m
                             add_param("remote", remote)
   )
   
-  # Comando do BLAST com parâmetros opcionais e definidos pelo usuário
-  system(paste0("wsl blastn -query ", query, " -task ", task, " -db ", paste0(linux_path, Database_File), 
+  # blastn
+  system(paste0("wsl blastn -query ", paste0(linux_path, query), " -task ", task, " -db ", paste0(linux_path, Database_File), 
                 " -out ", out, " -max_target_seqs ", max_target_seqs, 
                 " -perc_identity ", perc_identity, 
                 " -qcov_hsp_perc ", qcov_hsp_perc, 
                 " -num_threads ", num_threads, 
                 optional_params))
   
-  system(paste0("wsl tr -d '#' < otu_table.txt > temp_raw_database && mv temp_raw_database otu_table.txt"))
+  system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
   
   csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)
   
-  Samples <- read.table(paste0(Directory, "otu_table.txt"), sep = "\t", header = TRUE)
+  Samples <- read.table(paste0(Directory, otu_table), sep = "\t", header = TRUE)
   
   colnames(Samples)[1] <- "qseqid"
   
@@ -553,6 +590,7 @@ blast_gibi <- function(Directory, Database_File, query = "otus.fasta", task = "m
     print("End of Run")
   }
 }
+
 
 
 

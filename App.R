@@ -1,4 +1,6 @@
 
+
+
 # List of packages to ensure are installed and loaded
 pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
           'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
@@ -132,7 +134,6 @@ ui <- fluidPage(
     sidebarPanel(
       tabsetPanel(id = "tabs",
                   tabPanel("Pre-Treatment Process",
-                           shinyFilesButton("file1", "Choose CSV File", "Please select a file", multiple = FALSE, buttonType = "primary"),
                            numericInput("nrows", "Number of rows to read:", value = Inf, min = 1),
                            textInput("fields", "Columns to import (comma-separated):", 
                                      value = "gbifID,kingdom,phylum,class,order,family,genus,species,scientificName,countryCode,stateProvince,locality,decimalLongitude,decimalLatitude,basisOfRecord,year"),
@@ -281,7 +282,7 @@ ui <- fluidPage(
                   tabPanel("Make Database",
                            checkboxInput("condition", "Genus Flexibility:", TRUE),
                            textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
-                           textInput("gbif_database", "GBIF Database:", value = "gbif_taxa_dataset.txt"),
+                           textInput("gbif_database", "GBIF Database:", value = ""),
                            textInput("final_output_database", "Final Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
                            numericInput("min_sequence_length", "Minimum Sequence Length:", value = 100, min = 1),
                            textInput("pattern", "Pattern:", value = "UNVERIFIED"),
@@ -295,36 +296,25 @@ ui <- fluidPage(
                            textInput("mask_desc", "Mask Description", value = ""),
                            checkboxInput("gi_mask", "GI Mask", FALSE),
                            textInput("gi_mask_name", "GI Mask Name", value = ""),
-                           #numericInput("blastdb_version", "BLAST DB Version", value = NULL, min = 1),
                            textInput("max_file_sz", "Max File Size", value = ""),
                            textInput("logfile", "Log File", value = ""),
                            textInput("taxid", "TaxID", value = ""),
                            textInput("taxid_map", "TaxID Map File", value = ""),
-                           #checkboxInput("version", "Version", FALSE),
                            actionButton("run_make_database", "Run Make Database", class = "btn-primary")
                   ),
                   tabPanel("Taxonomic Assignment",
                            textInput("directory", "Directory:", value = ""),
                            textInput("database_file", "Database File:", value = ""),
+                           textInput("otu_table", "OTU Table:", value = ""),
                            textInput("query", "Query File:", value = "otus.fasta"),  
                            textInput("task", "Task:", value = "megablast"),          
                            textInput("out", "Output File:", value = "blast.txt"),    
                            numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
-                           #numericInput("perc_identity", "Percentage Identity:", value = 95, min = 0, max = 100, step = 1),
-                           sliderInput("perc_identity", "Percentage Identity:",
-                                       min = 0, max = 100, value = 95, step = 0.5),
-                           #numericInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", value = 95, min = 0, max = 100, step = 1),
-                           sliderInput("qcov_hsp_perc", "Query Coverage HSP Percentage:",
-                                       min = 0, max = 100, value = 95, step = 0.5),
-                           #numericInput("specie_threshold", "Specie Threshold:", value = 99, min = 0, max = 100, step = 1),
-                           sliderInput("specie_threshold", "Specie Threshold:",
-                                       min = 0, max = 100, value = 99, step = 0.5),
-                           #numericInput("genus_threshold", "Genus Threshold:", value = 97, min = 0, max = 100, step = 1),
-                           sliderInput("genus_threshold", "Genus Threshold:",
-                                       min = 0, max = 100, value = 97, step = 0.5),
-                           #numericInput("family_threshold", "Family Threshold:", value = 95, min = 0, max = 100, step = 1),
-                           sliderInput("family_threshold", "Family Threshold:",
-                                       min = 0, max = 100, value = 95, step = 0.5),
+                           sliderInput("perc_identity", "Percentage Identity:", min = 0, max = 100, value = 95, step = 0.5),
+                           sliderInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", min = 0, max = 100, value = 95, step = 0.5),
+                           sliderInput("specie_threshold", "Specie Threshold:", min = 0, max = 100, value = 99, step = 0.5),
+                           sliderInput("genus_threshold", "Genus Threshold:", min = 0, max = 100, value = 97, step = 0.5),
+                           sliderInput("family_threshold", "Family Threshold:", min = 0, max = 100, value = 95, step = 0.5),
                            numericInput("num_threads", "Number of Threads:", value = 6, min = 1),
                            numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), 
                            numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   
@@ -360,7 +350,7 @@ ui <- fluidPage(
                            textInput("query_loc", "Query Loc:", value = ""),                              
                            textInput("strand", "Strand:", value = ""),                                   
                            numericInput("parse_deflines", "Parse Deflines:", value = NA),                
-                           numericInput("outfmt", "Output Format:", value = 6),                           
+                           #numericInput("outfmt", "Output Format:", value = 6),                           
                            numericInput("show_gis", "Show GIS:", value = NA),                            
                            numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    
                            numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),       
@@ -410,7 +400,6 @@ ui <- fluidPage(
     )
   )
 )
-
 
 # Define server logic
 server <- function(input, output, session) {
@@ -1096,22 +1085,19 @@ server <- function(input, output, session) {
     
     # Define intermediate parameters
     database_cleaned <- "ncbiChordataToGbif.fasta"
-    #cleaned_ncbi_database <- "ncbi_cleaned.fasta"
     
     # Call the function format_ncbi_database
     format_ncbi_database(raw_database, database_cleaned, min_sequence_length, pattern)
-    # Delete intermediate file
-    #delete_intermediate_files(c(raw_database))
     
-    # Call the function subset_ncbi_based_on_gbif
-    subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database, condition)
-    # Delete intermediate file
-    delete_intermediate_files(c(database_cleaned))
+    # Conditionally call the appropriate function
+    if (gbif_database != "") {
+      subset_ncbi_based_on_gbif(gbif_database, database_cleaned, final_output_database, condition)
+    } else {
+      ncbiToMakeblastdb(database_cleaned, final_output_database)
+    }
     
     # Call the function create_blast_db
     create_blast_db(final_output_database, parse_seqids, database_type, title, out, hash_index, mask_data, mask_id, mask_desc, gi_mask, gi_mask_name, max_file_sz, logfile, taxid, taxid_map)
-    # Delete intermediate file
-    #delete_intermediate_files(c(cleaned_ncbi_database))
   })
   
   # Adding reactives and observers for "Edit Map"
@@ -1158,6 +1144,7 @@ server <- function(input, output, session) {
   observeEvent(input$run_blast, {
     Directory <- input$directory
     Database_File <- input$database_file
+    otu_table <- input$otu_table
     query <- input$query
     task <- input$task
     out <- input$out
@@ -1202,7 +1189,7 @@ server <- function(input, output, session) {
     query_loc <- if (input$query_loc == "") NULL else input$query_loc
     strand <- if (input$strand == "") NULL else input$strand
     parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
-    outfmt <- input$outfmt
+    outfmt <- "6"
     show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
     num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
     num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
@@ -1213,7 +1200,7 @@ server <- function(input, output, session) {
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    blast_gibi(Directory, Database_File, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    blast_gibi(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
