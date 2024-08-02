@@ -45,23 +45,17 @@ fields <- c("gbifID","continent", "scientificName", "countryCode", "stateProvinc
             "phylum", "kingdom", "decimalLongitude", "decimalLatitude", 
             "basisOfRecord", "verbatimEventDate", "year")
 
-### Pre-Treatment
-
-library(data.table)
+## %######################################################%##
+#                                                          #
+####                    Pre-Treatment                   ####
+#                                                          #
+## %######################################################%##
 
 fields <- c("gbifID","scientificName", "countryCode", "stateProvince", "locality",
             "decimalLongitude", "decimalLatitude", "basisOfRecord", "year")
 
 # Read the CSV file into a data.table
-data <- fread("gbifChordata.csv", select = fields, nrows = 100000)
-
-
-## %#######################################################################%##
-## %##      IMPORTANT: # The results of the VALIDATION test              ##%##
-## %##         used to flag data quality are appended in                 ##%##
-## %##          separate columns in this database and                    ##%##
-## %##     retrieved as TRUE (ok) or FALSE (check carefully).            ##%##
-## %#######################################################################%##
+data <- fread("gbifChordata.csv", select = fields, nrows = 1000)
 
 # Records with missing species names
 dataPreProcess <-
@@ -97,11 +91,6 @@ dataPreProcess <- bdc_basisOfRecords_notStandard(
   names_to_keep = "all"
 )
 
-#dataPreProcess %>% # if we explore the frequency of different sources we get this
-#  dplyr::group_by(basisOfRecord) %>%
-#  dplyr::summarise(n = dplyr::n())
-
-
 # Create a named vector with unique country codes and their names using ISO2
 unique_country_codes <- unique(dataPreProcess$countryCode)
 country_names <- countrycode(unique_country_codes, origin = "iso2c", destination = "country.name")
@@ -112,7 +101,7 @@ dataPreProcess <- dataPreProcess %>%
   mutate(country = nome_map[countryCode])
 
 # Add the new column in the desired position
-dataPreProcess <- add_column(dataPreProcess, country = dataPreProcess$country)
+#dataPreProcess <- add_column(dataPreProcess, country = dataPreProcess$country)
 
 # Reorder columns
 dataPreProcess <- dataPreProcess %>% select(gbifID, scientificName, countryCode, country, everything())
@@ -183,7 +172,7 @@ pre_filtered_data <-
   bdc_filter_out_flags(data = ., col_to_remove = "all") ; rm(dataPreProcess)
 
 # Save 
-save_occurrence_data(taxonomy_cleaned, "1_bdc_PreProcess_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
+save_occurrence_data(pre_filtered_data, "1_bdc_PreProcess_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv")) # *
 
 ## %######################################################%##
 #                                                          #
@@ -236,15 +225,15 @@ spl <- unique(check_taxonomy$names_clean) %>% sort() # list of raw species names
 
 query_names <- bdc_query_names_taxadb(
   sci_name            = spl,
-  replace_synonyms    = TRUE, # replace synonyms by accepted names?
-  suggest_names       = TRUE, # try to found a candidate name for misspelled names?
-  suggestion_distance = 0.9, # distance between the searched and suggested names
-  db                  = "gbif", # taxonomic database
-  rank_name           = "Chordata", # a taxonomic rank
-  rank                = "phylum", # name of the taxonomic rank
-  parallel            = FALSE, # should parallel processing be used?
-  ncores              = 2, # number of cores to be used in the palatalization process
-  export_accepted     = FALSE # save names linked to multiple accepted names
+  replace_synonyms    = TRUE, # replace synonyms by accepted names? # *
+  suggest_names       = TRUE, # try to found a candidate name for misspelled names? # *
+  suggestion_distance = 0.9, # distance between the searched and suggested names # *
+  db                  = "gbif", # taxonomic database # *
+  rank_name           = "Chordata", # a taxonomic rank # *
+  rank                = "phylum", # name of the taxonomic rank # *
+  parallel            = FALSE, # should parallel processing be used? # *
+  ncores              = 2, # number of cores to be used in the palatalization process # *
+  export_accepted     = FALSE # save names linked to multiple accepted names # *
 )
 
 #View(query_names)
@@ -315,7 +304,7 @@ check_taxonomy <- check_taxonomy %>%
 taxonomy_cleaned <- check_taxonomy %>% select_if(~ !all(is.na(.))) ; rm(check_taxonomy)
 
 # Save 
-save_occurrence_data(taxonomy_cleaned, "2_bdc_taxonomy_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
+save_occurrence_data(taxonomy_cleaned, "2_bdc_taxonomy_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv")) # *
 
 ## %######################################################%##
 #                                                          #
@@ -361,36 +350,36 @@ check_space <-
     species = "scientificName_updated", # Species names with genus and species
     countries = ,
     tests = c(
-      "capitals", # records within 3km of capitals and province centroids
-      "centroids", # records within 5km around country centroids
-      "duplicates", # duplicated records
-      "equal", # records with equal coordinates
-      "gbif", # records within 1 degree (~111km) of GBIF headsquare
-      "institutions", # records within 100m of zoo and herbaria
-      # "outliers",     # outliers
-      "zeros" # records with coordinates 0,0
+      "capitals", # records within 3km of capitals and province centroids # *
+      "centroids", # records within 5km around country centroids # *
+      "duplicates", # duplicated records # *
+      "equal", # records with equal coordinates # *
+      "gbif", # records within 1 degree (~111km) of GBIF headsquare # *
+      "institutions", # records within 100m of zoo and herbaria # *
+      #"outliers",     # outliers # *
+      "zeros" # records with coordinates 0,0 # *
       # "urban"         # records within urban areas
     ),
-    capitals_rad = 3000,
-    centroids_rad = 10000, # Be careful if species distribute in small countries
-    centroids_detail = "both", # test both country and province centroids
-    inst_rad = 100, # remove zoo and herbaria within 100m
-    outliers_method = "quantile",
-    outliers_mtp = 5,
-    outliers_td = 1000,
-    outliers_size = 10,
-    range_rad = 0,
-    zeros_rad = 0.5,
-    capitals_ref = NULL,
-    centroids_ref = NULL,
-    country_ref = NULL,
-    country_refcol = "countryCode",
-    inst_ref = NULL,
-    range_ref = NULL,
-    # seas_ref = continent_border,
-    # seas_scale = 110,
-    urban_ref = NULL,
-    value = "spatialvalid" # result of tests are appended in separate columns
+    capitals_rad = 3000, # *
+    centroids_rad = 10000, # Be careful if species distribute in small countries # *
+    centroids_detail = "both", # test both country and province centroids # *
+    inst_rad = 100, # remove zoo and herbaria within 100m # *
+    outliers_method = "quantile", # *
+    outliers_mtp = 5, # *
+    outliers_td = 1000, # *
+    outliers_size = 10, # *
+    range_rad = 0, # *
+    zeros_rad = 0.5, # *
+    capitals_ref = NULL, # *
+    centroids_ref = NULL, # *
+    country_ref = NULL, # *
+    country_refcol = "countryCode", # *
+    inst_ref = NULL, # *
+    range_ref = NULL, # *
+    # seas_ref = continent_border, # *
+    # seas_scale = 110, # *
+    urban_ref = NULL, # *
+    value = "spatialvalid" # result of tests are appended in separate columns # *
   ) %>%
   dplyr::tibble()
 
@@ -414,7 +403,7 @@ space_cleaned <-
 space_cleaned <- space_cleaned %>% select_if(~ !all(is.na(.)))
 
 # Save 
-save_occurrence_data(space_cleaned, "3_bdc_space_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
+save_occurrence_data(space_cleaned, "3_bdc_space_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv")) # *
 
 ## %######################################################%##
 #                                                          #
@@ -445,7 +434,7 @@ check_time <-
   bdc_year_outOfRange(
     data = space_cleaned,
     eventDate = "year",
-    year_threshold = 1950
+    year_threshold = 1950 # *
   )
 
 rm(space_cleaned) # INSERT A CONDITION HERE - SAVE OR NOT THIS VERSION?
@@ -469,7 +458,7 @@ time_cleaned <-
 
 
 # Save 
-save_occurrence_data(time_cleaned, "4_bdc_time_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv"))
+save_occurrence_data(time_cleaned, "4_bdc_time_cleaned", formats = c("shp", "geojson", "gpkg", "kml", "csv")) # *
 
 
 

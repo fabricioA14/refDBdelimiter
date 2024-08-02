@@ -15,9 +15,8 @@ Authors@R: c(
         role = "aut",
         email = "jonathan.ready@gmail.com",
         comment = c(ORCID = "0000-0002-9374-8661")
-    )
-)
-Description: Toolset to create molecular reference databases with Geographic Information Systems (GIS) Data for molecular Analysis.
+    ))
+Description: Toolset to create molecular reference databases with Geographic Information Systems Data for molecular Analysis.
 License: MIT + file LICENSE
 URL: https://github.com/fabricioA14/refDBdelimiter/
 Depends: 
