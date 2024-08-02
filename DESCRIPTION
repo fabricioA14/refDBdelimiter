@@ -2,59 +2,63 @@ Package: refDBdelimiter
 Title: An R-Based Web Application for Molecular Identification with Geographically Curated eDNA Databases
 Version: 1.0.0
 Authors@R: c(
-  person(given = "Fabricio",
-         family = "dos Anjos",
-         role = c("aut", "cre"),
-         email = "fabriciodosanjos14@gmail.com",
-         comment = c(ORCID = "0000-0002-5242-6340")),
-  person(given = "Jonathan",
-         family = "Ready",
-         role = "aut",
-         email = "jonathan.ready@gmail.com",
-         comment = c(ORCID = "0000-0002-9374-8661"))
+    person(
+        given = "Fabricio",
+        family = "dos Anjos",
+        role = c("aut", "cre"),
+        email = "fabriciodosanjos14@gmail.com",
+        comment = c(ORCID = "0000-0002-5242-6340")
+    ),
+    person(
+        given = "Jonathan",
+        family = "Ready",
+        role = "aut",
+        email = "jonathan.ready@gmail.com",
+        comment = c(ORCID = "0000-0002-9374-8661")
+    )
 )
-Description: Toolset to create molecular reference databases with Geographic Information Systems (GIS) Data for molecular Analysis
+Description: Toolset to create molecular reference databases with Geographic Information Systems (GIS) Data for molecular Analysis.
 License: MIT + file LICENSE
 URL: https://github.com/fabricioA14/refDBdelimiter/
 Depends: 
-  R (>= 4.0.0)
+    R (>= 4.0.0)
 Imports:
-  dplyr,
-  sf,
-  ggplot2,
-  RColorBrewer,
-  shiny,
-  leaflet,
-  leaflet.extras2,
-  plotly,
-  tibble,
-  rgbif,
-  concaveman,
-  rnaturalearth,
-  rnaturalearthdata,
-  mapedit,
-  leaflet.extras,
-  htmlwidgets,
-  tidyr,
-  retry,
-  openxlsx,
-  httr,
-  jsonlite,
-  bdc,
-  tools,
-  countrycode,
-  data.table,
-  stringr,
-  shinyFiles,
-  shinyjs,
-  taxize,
-  taxizedb,
-  base64enc
+    dplyr,
+    sf,
+    ggplot2,
+    RColorBrewer,
+    shiny,
+    leaflet,
+    leaflet.extras2,
+    plotly,
+    tibble,
+    rgbif,
+    concaveman,
+    rnaturalearth,
+    rnaturalearthdata,
+    mapedit,
+    leaflet.extras,
+    htmlwidgets,
+    tidyr,
+    retry,
+    openxlsx,
+    httr,
+    jsonlite,
+    bdc,
+    tools,
+    countrycode,
+    data.table,
+    stringr,
+    shinyFiles,
+    shinyjs,
+    taxize,
+    taxizedb,
+    base64enc
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Suggests: 
-  cowplot,
-  ape,
-  phangorn
+    cowplot,
+    ape,
+    phangorn
