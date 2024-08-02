@@ -43,7 +43,7 @@ make_unique_names <- function(names) {
 }
 
 # Function to extract the data and create a data frame
-extract_data <- function(data) {
+refDB_ExtractData <- function(data) {
   # Extract and modify the taxa vector
   taxa <- unlist(lapply(data, function(x) x$taxa))
   taxa <- sub(",.*", "", taxa)
@@ -76,13 +76,13 @@ remove_trailing_numbers <- function(name) {
 }
 
 
-# Função para salvar dados de ocorrência nos formatos especificados
-save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojson", "gpkg", "kml", "csv")) {
-  # Definir o diretório de saída
+# Function to save occurrence data in specified formats
+refDB_SaveOccurrenceData <- function(data, base_filename, formats = c("shp", "geojson", "gpkg", "kml", "csv")) {
+  # Define the output directory
   current_directory <- getwd()
   output_directory <- file.path(current_directory, "SHP")
   
-  # Definir caminhos de saída com base nos formatos desejados
+  # Define output paths based on desired formats
   output_paths <- list(
     shp = file.path(output_directory, paste0(base_filename, ".shp")),
     geojson = paste0(base_filename, ".geojson"),
@@ -91,12 +91,12 @@ save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojso
     csv = paste0(base_filename, ".csv")
   )
   
-  # Salvar nos formatos especificados
+  # Save in specified formats
   if ("shp" %in% formats) {
     if (!dir.exists(output_directory)) {
       dir.create(output_directory)
     }
-    # Converter gbifID para character para evitar problemas de largura de campo
+    # Convert gbifID to character to avoid field width problems
     data$gbifID <- as.character(data$gbifID)
     st_write(data, output_paths$shp, delete_layer = TRUE)
   }
@@ -127,7 +127,7 @@ delete_intermediate_files <- function(files) {
 }
 
 # Function to create interactive stacked bar plot
-create_stacked_bar <- function(data, taxonomic_level, title, legend_title) {
+refDB_CreateStackedBar <- function(data, taxonomic_level, title, legend_title) {
   # Capitalize the first letter of the legend title
   legend_title <- str_to_title(legend_title)
   
@@ -171,7 +171,7 @@ create_stacked_bar <- function(data, taxonomic_level, title, legend_title) {
     )
 }
 
-format_ncbi_database <- function(raw_database, database_cleaned, min_sequence_length, pattern = "UNVERIFIED") {
+refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequence_length, pattern = "UNVERIFIED") {
   
   # Filter sequences based on the given pattern
   filter_command <- paste0(
@@ -232,7 +232,7 @@ format_ncbi_database <- function(raw_database, database_cleaned, min_sequence_le
   
 }
 
-subset_ncbi_based_on_gbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
+refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
 
     file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
@@ -339,7 +339,7 @@ subset_ncbi_based_on_gbif <- function(gbif_database, cleaned_ncbi_database, ncbi
   system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
 }
 
-ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_on_gbif) {
+refDB_ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_on_gbif) {
   
   file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
@@ -377,7 +377,7 @@ ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_on_gbif
   system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
 }
 
-create_blast_db <- function(database, parse_seqids = T, database_type = "nucl", title = "local_database", out = NULL, hash_index = FALSE, mask_data = NULL,  mask_id = NULL, mask_desc = NULL, gi_mask = FALSE,
+refDB_CreateBlastDB <- function(database, parse_seqids = T, database_type = "nucl", title = "local_database", out = NULL, hash_index = FALSE, mask_data = NULL,  mask_id = NULL, mask_desc = NULL, gi_mask = FALSE,
                             gi_mask_name = NULL, max_file_sz = NULL, logfile = NULL, taxid = NULL, taxid_map = NULL) {
 system(paste0("wsl makeblastdb -in " , database, " ", if (parse_seqids) paste0("-parse_seqids"), " -title ", title, " -dbtype ", database_type, " -out ", out, if (hash_index) "-hash_index ",
                     if (!is.null(mask_data) && mask_data != "") paste0("-mask_data ", mask_data, " "), if (!is.null(mask_id) && mask_id != "") paste0("-mask_id ", mask_id, " "),
@@ -386,7 +386,7 @@ system(paste0("wsl makeblastdb -in " , database, " ", if (parse_seqids) paste0("
                     if (!is.null(taxid) && taxid != "") paste0("-taxid ", taxid, " "), if (!is.null(taxid_map) && taxid_map != "") paste0("-taxid_map ", taxid_map, " ")))
 }
 
-blast_gibi <- function(Directory, Database_File, otu_table = "otu_table.txt", query = "otus.fasta", task = "megablast", out = "blast.txt", 
+refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", query = "otus.fasta", task = "megablast", out = "blast.txt", 
                        max_target_seqs = 50, perc_identity = 95, qcov_hsp_perc = 95, num_threads = 6, 
                        Specie_Threshold = 99, Genus_Threshold = 97, Family_Threshold = 95, 
                        penalty = NULL, reward = NULL, evalue = NULL, word_size = NULL, gapopen = NULL, 
