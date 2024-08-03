@@ -1,11 +1,34 @@
-refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
+#' Subset NCBI Database Based on GBIF Database
+#'
+#' This function subsets an NCBI database based on a GBIF database by searching for and appending sequences that match names from the GBIF database. The matching can be based on exact names or specific conditions.
+#'
+#' @param gbif_database Path to the GBIF database file containing names.
+#' @param cleaned_ncbi_database Path to the cleaned NCBI database file.
+#' @param ncbi_database_based_on_gbif Path to the output NCBI database file based on the GBIF database.
+#' @param genus_flexibility Logical condition to determine the matching strategy.
+#' @return An NCBI database file subsetted based on the GBIF database.
+#' @examples{
+#' \dontrun{
+#' # Example usage of refDB_SubsetNcbiGbif
+#' gbif_database <- "path/to/gbif_database.txt"
+#' cleaned_ncbi_database <- "path/to/cleaned_ncbi_database.fasta"
+#' ncbi_database_based_on_gbif <- "path/to/ncbi_database_based_on_gbif.fasta"
+#' genus_flexibility <- TRUE
+#'
+#' refDB_SubsetNcbiGbif(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility)
+#' )}
+#' }
+#' @import readr
+#' @importFrom utils read.table write.table
+#' @export
+refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility) {
   
   file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
   close(fileConn)
   
-  if (condition) {
-    # If condition is TRUE:
+  if (genus_flexibility) {
+    # If genus_flexibility is TRUE:
     system(paste0("
       wsl names=$(<", gbif_database ,")
 

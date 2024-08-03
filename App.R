@@ -233,14 +233,15 @@ refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequenc
   
 }
 
-refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
+# Function to subset NCBI database based on GBIF database
+refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility) {
   
   file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
   close(fileConn)
   
-  if (condition) {
-    # If condition is TRUE:
+  if (genus_flexibility) {
+    # If genus_flexibility is TRUE:
     system(paste0("
       wsl names=$(<", gbif_database ,")
 
@@ -919,7 +920,7 @@ ui <- fluidPage(
                            verbatimTextOutput("searchedValuesOutput_edit")
                   ),
                   tabPanel("Save Data",
-                           checkboxInput("condition", "Genus Flexibility:", TRUE),
+                           checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
                            radioButtons("save_option", "Save Data:",
                                         choices = c("selected_occurrence_data", "excluded_occurrence_data", "both")),
                            textInput("save_path_selected", "Save Path for Selected Data:", "selected_data"),
@@ -934,7 +935,7 @@ ui <- fluidPage(
                            actionButton("save_data", "Save Data", class = "btn-primary")
                   ),
                   tabPanel("Make Database",
-                           checkboxInput("condition", "Genus Flexibility:", TRUE),
+                           checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
                            textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
                            textInput("gbif_database", "GBIF Database:", value = ""),
                            textInput("final_output_database", "Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
@@ -1634,7 +1635,7 @@ server <- function(input, output, session) {
   observeEvent(input$save_data, {
     runjs("$('#save_data').addClass('selected');")
     save_option <- input$save_option
-    condition <- input$condition
+    genus_flexibility <- input$genus_flexibility
     
     # Insert the logic for the Save Data input here
     time_cleaned_data <- time_cleaned()
@@ -1660,7 +1661,7 @@ server <- function(input, output, session) {
     
     # Check if the updatedFeatures.RData file exists in the current working directory
     if (!file.exists("updatedFeatures.RData")) {
-      if (condition) {
+      if (genus_flexibility) {
         species_chunks <- unique(visualization$taxa[str_detect(visualization$taxa, "\\s")])
         genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
         collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
@@ -1727,7 +1728,7 @@ server <- function(input, output, session) {
     selected_occurrence_data$decimalLatitude <- coords[, "Y"]
     selected_occurrence_data <- selected_occurrence_data %>% st_drop_geometry()
     
-    if (condition) {
+    if (genus_flexibility) {
       species_chunks <- unique(selected_occurrence_data$taxa[str_detect(selected_occurrence_data$taxa, "\\s")])
       genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
       collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
@@ -1788,7 +1789,7 @@ server <- function(input, output, session) {
     logfile <- input$logfile
     taxid <- input$taxid
     taxid_map <- input$taxid_map
-    condition <- input$condition
+    genus_flexibility <- input$genus_flexibility
     
     # Define intermediate parameters
     database_cleaned <- "ncbiChordataToGbif.fasta"
@@ -1804,7 +1805,7 @@ server <- function(input, output, session) {
     
     # Conditionally call the appropriate function
     if (gbif_database != "") {
-      refDB_SubsetNcbiGbif(gbif_database, database_cleaned, final_output_database, condition)
+      refDB_SubsetNcbiGbif(gbif_database, database_cleaned, final_output_database, genus_flexibility)
     } else {
       refDB_ncbiToMakeblastdb(database_cleaned, final_output_database)
     }

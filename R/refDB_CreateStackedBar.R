@@ -1,4 +1,33 @@
-# Function to create interactive stacked bar plot
+#' Create Interactive Stacked Bar Plot
+#'
+#' This function creates an interactive stacked bar plot using the input data.
+#'
+#' @param data A data frame containing the data to be plotted.
+#' @param taxonomic_level The taxonomic level to be used for grouping the data.
+#' @param title The title of the plot.
+#' @param legend_title The title of the legend.
+#' @return An interactive stacked bar plot created using plotly.
+#' @examples{
+#' \dontrun{
+#' # Example data frame
+#' example_data <- data.frame(
+#'   year = c(2020, 2021, 2022, 2020, 2021, 2022),
+#'   family = c("Felidae", "Canidae", "Felidae", "Canidae", "Felidae", "Canidae"),
+#'   stringsAsFactors = FALSE
+#' )
+#'
+#' # Create a stacked bar plot
+#' refDB_CreateStackedBar(example_data, "family", "Example Stacked Bar Plot", "Family")
+#' )}
+#' }
+#' @return A plotly object.
+#' @importFrom dplyr group_by summarise n %>%
+#' @importFrom plotly plot_ly layout
+#' @importFrom rlang sym
+#' @importFrom RColorBrewer brewer.pal
+#' @importFrom stringr str_to_title
+#' @importFrom stats as.formula
+#' @export
 refDB_CreateStackedBar <- function(data, taxonomic_level, title, legend_title) {
   # Capitalize the first letter of the legend title
   legend_title <- str_to_title(legend_title)

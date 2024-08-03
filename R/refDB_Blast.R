@@ -1,3 +1,85 @@
+#' Run BLAST and Process Results
+#'
+#' This function runs a BLAST search and processes the results to assign taxonomic information to OTUs.
+#'
+#' @param Directory The directory where the BLAST database and query files are located.
+#' @param Database_File The BLAST database file.
+#' @param otu_table The OTU table file. Default is "otu_table.txt".
+#' @param query The query file. Default is "otus.fasta".
+#' @param task The BLAST task. Default is "megablast".
+#' @param out The output file. Default is "blast.txt".
+#' @param max_target_seqs The maximum number of target sequences. Default is 50.
+#' @param perc_identity The percentage identity threshold. Default is 95.
+#' @param qcov_hsp_perc The query coverage HSP percentage. Default is 95.
+#' @param num_threads The number of threads to use. Default is 6.
+#' @param Specie_Threshold The species threshold. Default is 99.
+#' @param Genus_Threshold The genus threshold. Default is 97.
+#' @param Family_Threshold The family threshold. Default is 95.
+#' @param penalty Optional BLAST parameter.
+#' @param reward Optional BLAST parameter.
+#' @param evalue Optional BLAST parameter.
+#' @param word_size Optional BLAST parameter.
+#' @param gapopen Optional BLAST parameter.
+#' @param gapextend Optional BLAST parameter.
+#' @param max_hsps Optional BLAST parameter.
+#' @param xdrop_ungap Optional BLAST parameter.
+#' @param xdrop_gap Optional BLAST parameter.
+#' @param xdrop_gap_final Optional BLAST parameter.
+#' @param searchsp Optional BLAST parameter.
+#' @param sum_stats Optional BLAST parameter.
+#' @param no_greedy Optional BLAST parameter.
+#' @param min_raw_gapped_score Optional BLAST parameter.
+#' @param template_type Optional BLAST parameter.
+#' @param template_length Optional BLAST parameter.
+#' @param dust Optional BLAST parameter.
+#' @param filtering_db Optional BLAST parameter.
+#' @param window_masker_taxid Optional BLAST parameter.
+#' @param window_masker_db Optional BLAST parameter.
+#' @param soft_masking Optional BLAST parameter.
+#' @param ungapped Optional BLAST parameter.
+#' @param culling_limit Optional BLAST parameter.
+#' @param best_hit_overhang Optional BLAST parameter.
+#' @param best_hit_score_edge Optional BLAST parameter.
+#' @param subject_besthit Optional BLAST parameter.
+#' @param window_size Optional BLAST parameter.
+#' @param off_diagonal_range Optional BLAST parameter.
+#' @param use_index Optional BLAST parameter.
+#' @param index_name Optional BLAST parameter.
+#' @param lcase_masking Optional BLAST parameter.
+#' @param query_loc Optional BLAST parameter.
+#' @param strand Optional BLAST parameter.
+#' @param parse_deflines Optional BLAST parameter.
+#' @param outfmt Output format. Default is "6".
+#' @param show_gis Optional BLAST parameter.
+#' @param num_descriptions Optional BLAST parameter.
+#' @param num_alignments Optional BLAST parameter.
+#' @param line_length Optional BLAST parameter.
+#' @param html Optional BLAST parameter.
+#' @param sorthits Optional BLAST parameter.
+#' @param sorthsps Optional BLAST parameter.
+#' @param mt_mode Optional BLAST parameter.
+#' @param remote Optional BLAST parameter.
+#' @return None
+#' @examples{
+#' \dontrun{
+#' refDB_Blast(
+#'   Directory = "/path/to/directory",
+#'   Database_File = "database_file",
+#'   otu_table = "otu_table.txt",
+#'   query = "otus.fasta",
+#'   out = "blast.txt"
+#' )}
+#' }
+#' @import readr
+#' @importFrom dplyr group_by top_n rename distinct filter mutate select ungroup case_when left_join
+#' @importFrom plyr match_df
+#' @importFrom readr read_table
+#' @importFrom stats complete.cases
+#' @importFrom stringr str_split
+#' @importFrom tidyr pivot_wider
+#' @importFrom utils read.table write.table
+#' @importFrom taxizedb classification db_download_ncbi name2taxid src_ncbi
+#' @export
 refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", query = "otus.fasta", task = "megablast", out = "blast.txt", 
                         max_target_seqs = 50, perc_identity = 95, qcov_hsp_perc = 95, num_threads = 6, 
                         Specie_Threshold = 99, Genus_Threshold = 97, Family_Threshold = 95, 
@@ -72,7 +154,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                             add_param("remote", remote)
   )
   
-  # blastn
+  # Run blastn
   system(paste0("wsl blastn -query ", paste0(linux_path, query), " -task ", task, " -db ", paste0(linux_path, Database_File), 
                 " -out ", out, " -max_target_seqs ", max_target_seqs, 
                 " -perc_identity ", perc_identity, 
@@ -80,6 +162,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                 " -num_threads ", num_threads, 
                 optional_params))
   
+  # Process the results
   system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
   
   csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)

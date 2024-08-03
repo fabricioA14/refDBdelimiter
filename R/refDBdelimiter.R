@@ -1,25 +1,29 @@
+#' refDBdelimiter
+#'
+#' This function launches a Shiny app for preprocessing, analyzing, and visualizing biodiversity data.
+#'
+#' @param run_in_browser Logical. If TRUE, the app will run in the default web browser. If FALSE, the app will run in the RStudio viewer or the R default browser.
+#'
+#'
+#' @examples{
+#' \dontrun{
+#' refDBdelimiter()
+#' )}
+#' }
+#' @importFrom dplyr if_else select_if anti_join
+#' @importFrom shiny shinyApp fluidPage sidebarLayout sidebarPanel mainPanel tabsetPanel tabPanel textInput selectInput numericInput actionButton
+#' @importFrom leaflet leaflet colorFactor leafletOutput renderLeaflet
+#' @importFrom leaflet.extras addDrawToolbar editToolbarOptions selectedPathOptions
+#' @importFrom shinyjs useShinyjs
+#' @importFrom plotly plotlyOutput renderPlotly
+#' @importFrom sf st_polygon st_crs
+#' @importFrom tools toTitleCase
+#' @importFrom bdc bdc_coordinates_precision bdc_query_names_taxadb bdc_scientificName_empty bdc_coordinates_empty bdc_coordinates_outOfRange bdc_clean_names bdc_basisOfRecords_notStandard bdc_country_from_coordinates bdc_coordinates_country_inconsistent bdc_coordinates_from_locality bdc_summary_col bdc_filter_out_flags bdc_year_outOfRange
+#' @importFrom countrycode countrycode
+#' @importFrom data.table fread
+#' @export
 refDBdelimiter <- function(run_in_browser = FALSE) {
-  
-  # List of packages to ensure are installed and loaded
-  pack <- c('tibble', 'rgbif', 'sf', 'concaveman', 'ggplot2', 'rnaturalearth', 'rnaturalearthdata', 'leaflet',
-            'mapedit', 'leaflet.extras2', 'dplyr', 'RColorBrewer', 'leaflet.extras', 'shiny', 'htmlwidgets',
-            'tidyr', 'retry', 'openxlsx', 'httr', 'jsonlite', 'bdc', 'tools', 'countrycode', 'data.table', 'stringr',
-            'plotly', 'shinyFiles', 'shinyjs', 'taxize', 'taxizedb', 'base64enc')
-  
-  # Check for packages that are not installed
-  vars <- pack[!(pack %in% installed.packages()[, "Package"])]
-  
-  # Install any packages that are not already installed
-  if (length(vars) != 0) {
-    install.packages(vars, dependencies = TRUE)
-  }
-  
-  # Load all the packages
-  sapply(pack, require, character.only = TRUE)
-  
-  rm(vars, pack)
-  gc()
-  
+
   scrollable_legend_css <- "
 .info.legend {
   max-height: calc(93vh - 93px); /* Adjust the height as needed */
@@ -272,7 +276,7 @@ ui <- fluidPage(
                            verbatimTextOutput("searchedValuesOutput_edit")
                   ),
                   tabPanel("Save Data",
-                           checkboxInput("condition", "Genus Flexibility:", TRUE),
+                           checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
                            radioButtons("save_option", "Save Data:",
                                         choices = c("selected_occurrence_data", "excluded_occurrence_data", "both")),
                            textInput("save_path_selected", "Save Path for Selected Data:", "selected_data"),
@@ -287,7 +291,7 @@ ui <- fluidPage(
                            actionButton("save_data", "Save Data", class = "btn-primary")
                   ),
                   tabPanel("Make Database",
-                           checkboxInput("condition", "Genus Flexibility:", TRUE),
+                           checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
                            textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
                            textInput("gbif_database", "GBIF Database:", value = ""),
                            textInput("final_output_database", "Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
@@ -425,8 +429,8 @@ server <- function(input, output, session) {
   polygon_data <- reactiveVal(NULL)
   
   observe({
-    img_path <- "C:/Users/fabricio/Desktop/fabricioA14/refDBdelimiter/www/refdb.png"
-    #img_path <- system.file("www", "refdb.png", package = package_name)
+    #img_path <- "C:/Users/fabricio/Desktop/fabricioA14/refDBdelimiter/www/refdb.png"
+    img_path <- system.file("www", "refdb.png", package = "refDBdelimiter")
     if (file.exists(img_path)) {
       img_base64 <- base64enc::dataURI(file = img_path, mime = "image/png")
       runjs(sprintf('document.getElementById("image_base64").src = "%s";', img_base64))
@@ -449,7 +453,22 @@ server <- function(input, output, session) {
     additional_fields <- input$additional_fields
     fields <- c(default_fields, additional_fields)
     
-    data <- fread(input$input_file, select = fields, nrows = nrows)
+      # Adding error handling for file reading
+  if (!file.exists(input$input_file)) {
+    showNotification("Input file not found.", type = "error")
+    return(NULL)
+  }
+
+  data <- tryCatch({
+    fread(input$input_file, select = fields, nrows = nrows)
+  }, error = function(e) {
+    showNotification("Error reading input file.", type = "error")
+    return(NULL)
+  })
+
+  if (is.null(data)) {
+    return(NULL)  # Stop further processing if data could not be read
+  }
     
     dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
       bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
@@ -517,8 +536,10 @@ server <- function(input, output, session) {
     })
   })
   
+suppressWarnings({
   rm(data, dataPreProcess, xyFromLocality)
-  gc()
+})
+  #invisible(capture.output(gc()))
   
   # Taxonomy Process
   observeEvent(input$run_tax, {
@@ -583,8 +604,11 @@ server <- function(input, output, session) {
     })
   })
   
+  suppressWarnings({
   rm(pre_filtered)
-  gc()
+})
+  #invisible(capture.output(gc()))
+
   
   # Space Process
   observeEvent(input$run_space, {
@@ -651,8 +675,10 @@ server <- function(input, output, session) {
     })
   })
   
+  suppressWarnings({
   rm(taxonomy_cleaned_data)
-  gc()
+  })
+  #invisible(capture.output(gc()))
   
   # Time Process
   observeEvent(input$run_time, {
@@ -987,7 +1013,7 @@ server <- function(input, output, session) {
   observeEvent(input$save_data, {
     runjs("$('#save_data').addClass('selected');")
     save_option <- input$save_option
-    condition <- input$condition
+    genus_flexibility <- input$genus_flexibility
     
     # Insert the logic for the Save Data input here
     time_cleaned_data <- time_cleaned()
@@ -1013,7 +1039,7 @@ server <- function(input, output, session) {
     
     # Check if the updatedFeatures.RData file exists in the current working directory
     if (!file.exists("updatedFeatures.RData")) {
-      if (condition) {
+      if (genus_flexibility) {
         species_chunks <- unique(visualization$taxa[str_detect(visualization$taxa, "\\s")])
         genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
         collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
@@ -1080,7 +1106,7 @@ server <- function(input, output, session) {
     selected_occurrence_data$decimalLatitude <- coords[, "Y"]
     selected_occurrence_data <- selected_occurrence_data %>% st_drop_geometry()
     
-    if (condition) {
+    if (genus_flexibility) {
       species_chunks <- unique(selected_occurrence_data$taxa[str_detect(selected_occurrence_data$taxa, "\\s")])
       genus_chunks <- unique(str_extract(species_chunks, "^[^\\s]+"))
       collapsed_string <- paste0(paste(genus_chunks, collapse = "|"), "|")
@@ -1096,10 +1122,11 @@ server <- function(input, output, session) {
     if (save_option == "selected_occurrence_data" || save_option == "both") {
       if (!is.null(input$formats_edit) && length(input$formats_edit) > 0) {
         refDB_SaveOccurrenceData(selected_occurrence_data, input$save_path_selected, formats = input$formats_edit)
+	Sys.sleep(5)
         if (file.exists(input$save_path_selected)) {
-          showNotification("Selected occurrence data saved successfully.", type = "message")
+          #showNotification("Selected occurrence data saved successfully.", type = "message")
         } else {
-          showNotification("Error saving selected occurrence data.", type = "error")
+          #showNotification("Error saving selected occurrence data.", type = "error")
         }
       } else {
         showNotification("No save format selected for selected occurrence data. Data not saved.", type = "warning")
@@ -1108,10 +1135,11 @@ server <- function(input, output, session) {
     if (save_option == "excluded_occurrence_data" || save_option == "both") {
       if (!is.null(input$formats_edit) && length(input$formats_edit) > 0) {
         refDB_SaveOccurrenceData(excluded_occurrence_data, input$save_path_excluded, formats = input$formats_edit)
+	Sys.sleep(5)
         if (file.exists(input$save_path_excluded)) {
-          showNotification("Excluded occurrence data saved successfully.", type = "message")
+          #showNotification("Excluded occurrence data saved successfully.", type = "message")
         } else {
-          showNotification("Error saving excluded occurrence data.", type = "error")
+          #showNotification("Error saving excluded occurrence data.", type = "error")
         }
       } else {
         showNotification("No save format selected for excluded occurrence data. Data not saved.", type = "warning")
@@ -1141,7 +1169,7 @@ server <- function(input, output, session) {
     logfile <- input$logfile
     taxid <- input$taxid
     taxid_map <- input$taxid_map
-    condition <- input$condition
+    genus_flexibility <- input$genus_flexibility
     
     # Define intermediate parameters
     database_cleaned <- "ncbiChordataToGbif.fasta"
@@ -1157,7 +1185,7 @@ server <- function(input, output, session) {
     
     # Conditionally call the appropriate function
     if (gbif_database != "") {
-      refDB_SubsetNcbiGbif(gbif_database, database_cleaned, final_output_database, condition)
+      refDB_SubsetNcbiGbif(gbif_database, database_cleaned, final_output_database, genus_flexibility)
     } else {
       refDB_ncbiToMakeblastdb(database_cleaned, final_output_database)
     }
@@ -1213,6 +1241,9 @@ server <- function(input, output, session) {
     assign("searchedValuesGlobal", taxaList, envir = .GlobalEnv)
     assign("drawnFeaturesGlobal", updatedFeatures, envir = .GlobalEnv)
     save(updatedFeatures, file = "updatedFeatures.RData")
+
+  # Cleanup global variables
+  rm(list = c("searchedValuesGlobal", "drawnFeaturesGlobal"), envir = .GlobalEnv)
   })
   
   output$searchedValuesOutput_edit <- renderPrint({

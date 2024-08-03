@@ -16,7 +16,7 @@ Authors@R: c(
         email = "jonathan.ready@gmail.com",
         comment = c(ORCID = "0000-0002-9374-8661")
     ))
-Description: Toolset to create molecular reference databases with Geographic Information Systems Data for molecular Analysis.
+Description: Toolset to create molecular reference databases with geographic information systems data for molecular analysis.
 License: MIT + file LICENSE
 URL: https://github.com/fabricioA14/refDBdelimiter/
 Depends: 
@@ -52,11 +52,17 @@ Imports:
     shinyjs,
     taxize,
     taxizedb,
-    base64enc
+    base64enc,
+    CoordinateCleaner,
+    htmltools,
+    plyr,
+    readr,
+    rlang
 Encoding: UTF-8
 LazyData: true
+BuildResave: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Suggests: 
     cowplot,
     ape,
