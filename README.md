@@ -81,6 +81,22 @@ if (!requireNamespace("devtools", quietly = TRUE)) {
 # Install refDBdelimiter from GitHub
 devtools::install_github("fabricioA14/refDBdelimiter")
 ```
+## Usage
+
+### Make Database
+
+To create a database, you need to acquire\define these files:
+
+1. **Mandatory Parameters**:
+   - **Raw Database**: This is the database you will download in FASTA format from the NCBI website. Example: `ncbiChordata.fasta`. To download, go to the NCBI site, use "Send to - Complete Record - Choose Destination: Send to File - Format: FASTA".
+   - **GBIF Database**: Set this parameter only if you have run the previous map. The output will generate this file. Example: `gbif_database.txt`. If not set, simply provide a FASTA file and the database will be built without any geographic filter.
+   - **Output Database**: This file will contain the sequences from the selected region based on your GBIF database. Example: `Chordata_Ncbi_Gbif.fasta`.
+   - **Database Name**: This is the name of your final database. Example: `ChordataBrazilCOX1`.
+   - **Minimum Sequence Length**: This parameter sets a threshold for the minimum length of sequences to be included in the database. Example: `100` bp. This ensures that only sequences with a length greater than or equal to the specified threshold are included in the database, improving the quality and reliability of the data.
+2. **Optional Parameters**:
+   - **Genus Flexibility**: This parameter allows the database to include all species within a genus if any species of that genus occurs in the area of interest. This helps to address the lack of sequences available in NCBI molecular reference databases. 
+   - **Exclude UNVERIFIED Sequences**: This parameter allows you to exclude sequences labeled as UNVERIFIED from the database. This can improve the reliability and accuracy of the data by ensuring that only verified sequences are included.
+   - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
 
 ## Features
 
@@ -100,8 +116,6 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 Each of these formats has its unique advantages depending on the type of analysis, visualization, or data sharing needs, allowing for flexible use of the processed biodiversity data.
 
 ## Contributing
-
-Contributions are welcome and appreciated! To contribute to this project, please follow these steps:
 
 Contributions are welcome and appreciated! To contribute to this project, please follow these steps:
 
