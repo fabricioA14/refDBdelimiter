@@ -22,8 +22,10 @@
 #' @importFrom countrycode countrycode
 #' @importFrom data.table fread
 #' @export
-refDBdelimiter <- function(run_in_browser = FALSE) {
 
+
+refDBdelimiter <- function(run_in_browser = FALSE) {
+  
   scrollable_legend_css <- "
 .info.legend {
   max-height: calc(93vh - 93px); /* Adjust the height as needed */
@@ -105,7 +107,7 @@ ui <- fluidPage(
     ")),
     tags$style(type = "text/css", "#map {height: calc(90vh - 20px) !important;}"),
     tags$style(type = "text/css", "#edit_map {height: calc(90vh - 20px) !important;}"),
-    tags$style(HTML(scrollable_legend_css))
+    tags$style(HTML(scrollable_legend_css)),
   ),
   
   div(class = "title-panel", 
@@ -149,8 +151,10 @@ ui <- fluidPage(
                                                       "Species" = "species"),
                                        selected = "family"),
                            textInput("save_path_pre", "Save Path for Pre-Treatment:", "1_bdc_PreProcess_cleaned"),
-                           sliderInput("dist", "Distance for Inconsistent Coordinates (decimal degrees):",
+                           sliderInput("dist", HTML('Distance for Inconsistent Coordinates <a id="dist_link" href="#">(dist)</a>:'), 
                                        min = 0.01, max = 1.0, value = 0.1, step = 0.01),
+                           tags$div("Decimal Degrees", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
                            checkboxInput("save_outputs", "Save Coordinates Output", FALSE),
                            checkboxGroupInput("formats", "Select Output Formats:",
                                               choices = list("shp" = "shp",
@@ -162,13 +166,12 @@ ui <- fluidPage(
                            actionButton("run", "Run Pre-Treatment", class = "btn-primary")
                   ),
                   tabPanel("Taxonomy Process",
-                           checkboxInput("replace_synonyms", "Replace synonyms by accepted names", TRUE),
-                           checkboxInput("suggest_names", "Suggest names for misspelled names", TRUE),
-                           sliderInput("suggestion_distance", "Distance between the searched and suggested names:", min = 0, max = 1, value = 0.9, step = 0.01),
-                           textInput("db", "Taxonomic Database:", value = "gbif"),
-                           textInput("rank_name", "Taxonomic Rank Name:", value = "Chordata"),
-                           #textInput("rank", "Taxonomic Rank:", value = "Phylum"),
-                           selectInput("rank", "Taxonomic Rank:", 
+                           checkboxInput("replace_synonyms", HTML('Replace synonyms by accepted names <a id="replace_synonyms_link" href="#">(replace_synonyms)</a>'), TRUE),
+                           checkboxInput("suggest_names", HTML('Suggest names for misspelled names <a id="suggest_names_link" href="#">(suggest_names)</a>'), TRUE),
+                           sliderInput("suggestion_distance", HTML('Distance between the searched and suggested names <a id="suggestion_distance_link" href="#">(suggestion_distance)</a>:'), min = 0, max = 1, value = 0.9, step = 0.01),
+                           textInput("db", HTML('Taxonomic Database <a id="db_link" href="#">(db)</a>:'), value = "gbif"),
+                           textInput("rank_name", HTML('Taxonomic Rank Name <a id="rank_name_link" href="#">(rank_name)</a>:'), value = "Chordata"),
+                           selectInput("rank", HTML('Taxonomic Rank <a id="rank_link" href="#">(rank)</a>:'), 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
                                                       "Order" = "order",
@@ -184,10 +187,10 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           checkboxInput("parallel", "Use parallel processing?", TRUE),
-                           numericInput("ncores", "Number of cores:", value = 4, min = 1),
-                           checkboxInput("export_accepted", "Export accepted names?", FALSE),
-                           textInput("save_path_tax", "Save Path for Taxonomy:", "2_bdc_taxonomy_cleaned"),
+                           checkboxInput("parallel", HTML('Use parallel processing <a id="parallel_link" href="#">(parallel)</a>?'), TRUE),
+                           numericInput("ncores", HTML('Number of cores <a id="ncores_link" href="#">(ncores)</a>:'), value = 4, min = 1),
+                           checkboxInput("export_accepted", HTML('Export accepted names <a id="export_accepted_link" href="#">(export_accepted)</a>?'), FALSE),
+                           textInput("save_path_tax", "Save Path for Taxonomy (output_file):", "2_bdc_taxonomy_cleaned"),
                            checkboxGroupInput("formats_tax", "Select Output Formats:",
                                               choices = list("shp" = "shp",
                                                              "geojson" = "geojson",
@@ -198,8 +201,8 @@ ui <- fluidPage(
                            actionButton("run_tax", "Run Taxonomy Process", class = "btn-primary")
                   ),
                   tabPanel("Space Process",
-                           numericInput("ndec", "Number of decimals to be tested:", value = 3, min = 1),
-                           selectInput("clustering_level", "Clustering Based on:",
+                           numericInput("ndec", HTML('Number of decimals to be tested <a id="ndec_link" href="#">(ndec)</a>:'), value = 3, min = 1),
+                           selectInput("clustering_level", HTML('Clustering Based on <a id="clustering_level_link" href="#">(species)</a>:'), 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
                                                       "Order" = "order",
@@ -207,7 +210,7 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "species"),
-                           checkboxGroupInput("tests", "Select spatial tests:",
+                           checkboxGroupInput("tests", HTML('Select spatial tests <a id="tests_link" href="#">(tests)</a>:'), 
                                               choices = list(
                                                 "capitals" = "capitals",
                                                 "centroids" = "centroids",
@@ -219,16 +222,28 @@ ui <- fluidPage(
                                                 "zeros" = "zeros",
                                                 "urban" = "urban"
                                               ),
-                                              selected = c("capitals", "centroids", "duplicates", "equal", "gbif", "institutions", "zeros")),
-                           numericInput("capitals_rad", "Radius for capitals (meters):", value = 3000, min = 0),
-                           numericInput("centroids_rad", "Radius for centroids (meters):", value = 10000, min = 0),
-                           selectInput("centroids_detail", "Detail level for centroids:", choices = c("both", "country", "province"), selected = "both"),
-                           numericInput("inst_rad", "Radius around biodiversity institutions coordinates (meters):", value = 100, min = 0),
-                           numericInput("outliers_mtp", "Multiplicative factor for outliers:", value = 5, min = 0),
-                           numericInput("outliers_td", "Minimum distance of a record to all other records of a species to be identified as outlier (Km):", value = 1000, min = 0),
-                           numericInput("outliers_size", "Minimum number of records in a dataset to run the taxon-specific outlier test:", value = 10, min = 0),
-                           numericInput("range_rad", "Range radius:", value = 0, min = 0),
-                           numericInput("zeros_rad", "Radius for zeros (decimal degrees):", value = 0.5),
+                                              selected = c("capitals", "centroids", "duplicates", "equal", "gbif", "institutions", "outliers", "zeros", "urban")),
+                           numericInput("capitals_rad", HTML('Radius for capitals <a id="capitals_rad_link" href="#">(capitals_rad)</a>:'), value = 3000, min = 0),
+                           tags$div("Meters", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
+                           numericInput("centroids_rad", HTML('Radius for centroids <a id="centroids_rad_link" href="#">(centroids_rad)</a>:'), value = 10000, min = 0),
+                           tags$div("Meters", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
+                           selectInput("centroids_detail", HTML('Detail level for centroids <a id="centroids_detail_link" href="#">(centroids_detail)</a>:'), choices = c("both", "country", "province"), selected = "both"),
+                           numericInput("inst_rad", HTML('Radius around biodiversity institutions coordinates (meters) <a id="inst_rad_link" href="#">(inst_rad)</a>:'), value = 100, min = 0),
+                           tags$div("Meters", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
+                           numericInput("outliers_mtp", HTML('Multiplicative factor for outliers <a id="outliers_mtp_link" href="#">(outliers_mtp)</a>:'), value = 5, min = 0),
+                           numericInput("outliers_td", HTML('Minimum distance of a record to all other records of a species to be identified as outlier <a id="outliers_td_link" href="#">(outliers_td)</a>:'), value = 1000, min = 0),
+                           tags$div("Kilometers", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
+                           numericInput("outliers_size", HTML('Minimum number of records in a dataset to run the taxon-specific outlier test <a id="outliers_size_link" href="#">(outliers_size)</a>:'), value = 10, min = 0),
+                           numericInput("range_rad", HTML('Range radius <a id="range_rad_link" href="#">(range_rad)</a>:'), value = 0, min = 0),
+                           tags$div("Decimal degrees", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
+                           numericInput("zeros_rad", HTML('Radius for zeros <a id="zeros_rad_link" href="#">(zeros_rad)</a>:'), value = 0.5, min = 0),
+                           tags$div("Decimal degrees", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
+                           tags$hr(style = "border: none; border-top: 1px solid #D8D8D8; margin-top: 0px;"),
                            selectInput("taxonomic_level_space", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
@@ -248,7 +263,7 @@ ui <- fluidPage(
                            actionButton("run_space", "Run Space Process", class = "btn-primary")
                   ),
                   tabPanel("Time Process",
-                           numericInput("year_threshold", "Year threshold:", value = 1950, min = 0),
+                           numericInput("year_threshold", HTML('Year threshold <a id="year_threshold_link" href="#">(year_threshold)</a>:'), value = 1950, min = 0),
                            selectInput("taxonomic_level_time", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
                                                       "Class" = "class",
@@ -292,86 +307,88 @@ ui <- fluidPage(
                   ),
                   tabPanel("Make Database",
                            checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
-                           textInput("raw_database", "Raw Database:", value = "ncbiChordata.fasta"),
-                           textInput("gbif_database", "GBIF Database:", value = ""),
-                           textInput("final_output_database", "Output Database:", value = "Chordata_Ncbi_Gbif.fasta"),
+                           textInput("raw_database", "Raw Database", value = "ncbiChordata.fasta"),
+                           textInput("gbif_database", "GBIF Database", value = ""),
+                           textInput("final_output_database", "Output Database", value = "Chordata_Ncbi_Gbif.fasta"),
                            checkboxInput("pattern_unverified", "Exclude UNVERIFIED Sequences", value = TRUE),
-                           numericInput("min_sequence_length", "Minimum Sequence Length:", value = 100, min = 1),
-                           checkboxInput("parse_seqids", "Parse SeqIDs:", TRUE),
-                           selectInput("database_type", "Database Type:", choices = c("nucl", "prot"), selected = "nucl"),
-                           textInput("title", "Title:", value = "local_database"),
-                           textInput("out", "Database Name (out)", value = ""),
-                           checkboxInput("hash_index", "Hash Index", FALSE),
-                           textInput("mask_data", "Mask Data", value = ""),
-                           textInput("mask_id", "Mask ID", value = ""),
-                           textInput("mask_desc", "Mask Description", value = ""),
-                           checkboxInput("gi_mask", "GI Mask", FALSE),
-                           textInput("gi_mask_name", "GI Mask Name", value = ""),
-                           textInput("max_file_sz", "Max File Size", value = ""),
-                           textInput("logfile", "Log File", value = ""),
-                           textInput("taxid", "TaxID", value = ""),
-                           textInput("taxid_map", "TaxID Map File", value = ""),
+                           numericInput("min_sequence_length", "Minimum Sequence Length", value = 100, min = 1),
+                           checkboxInput("parse_seqids", HTML('Parse SeqIDs <a id="parse_seqids_link" href="#">(parse_seqids)</a>'), TRUE),
+                           selectInput("database_type", HTML('Database Type <a id="database_type_link" href="#">(dbtype)</a>'), choices = c("nucl", "prot"), selected = "nucl"),
+                           textInput("title", HTML('Title <a id="title_link" href="#">(title)</a>'), value = "local_database"),
+                           textInput("out", HTML('Database Name <a id="out_link" href="#">(out)</a>'), value = ""),
+                           checkboxInput("hash_index", HTML('Hash Index <a id="hash_index_link" href="#">(hash_index)</a>'), FALSE),
+                           textInput("mask_data", HTML('Mask Data <a id="mask_data_link" href="#">(mask_data)</a>'), value = ""),
+                           textInput("mask_id", HTML('Mask ID <a id="mask_id_link" href="#">(mask_id)</a>'), value = ""),
+                           textInput("mask_desc", HTML('Mask Description <a id="mask_desc_link" href="#">(mask_desc)</a>'), value = ""),
+                           checkboxInput("gi_mask", HTML('GI Mask <a id="gi_mask_link" href="#">(gi_mask)</a>'), FALSE),
+                           textInput("gi_mask_name", HTML('GI Mask Name <a id="gi_mask_name_link" href="#">(gi_mask_name)</a>'), value = ""),
+                           textInput("max_file_sz", HTML('Max File Size <a id="max_file_sz_link" href="#">(max_file_sz)</a>'), value = ""),
+                           textInput("logfile", HTML('Log File <a id="logfile_link" href="#">(logfile)</a>'), value = ""),
+                           textInput("taxid", HTML('TaxID <a id="taxid_link" href="#">(taxid)</a>'), value = ""),
+                           textInput("taxid_map", HTML('TaxID Map File <a id="taxid_map_link" href="#">(taxid_map)</a>'), value = ""),
                            actionButton("run_make_database", "Run Make Database", class = "btn-primary")
                   ),
                   tabPanel("Taxonomic Assignment",
-                           textInput("directory", "Directory:", value = ""),
-                           textInput("database_file", "Database File:", value = ""),
-                           textInput("query", "Query File:", value = "otus.fasta"),  
-                           textInput("task", "Task:", value = "megablast"),          
-                           textInput("out", "Output File:", value = "blast.txt"),    
-                           numericInput("max_target_seqs", "Max Target Seqs:", value = 50, min = 1),
-                           sliderInput("perc_identity", "Percentage Identity:", min = 0, max = 100, value = 95, step = 0.5),
-                           sliderInput("qcov_hsp_perc", "Query Coverage HSP Percentage:", min = 0, max = 100, value = 95, step = 0.5),
+                           textInput("directory", "Directory", value = ""),
+                           textInput("database_file", HTML('Database File <a id="database_file_link" href="#">(db)</a>:'), value = ""),
+                           textInput("query", HTML('Query File <a id="query_link" href="#">(query)</a>:'), value = "otus.fasta"),
+                           textInput("otu_table", "OTU Table", value = ""),   
+                           textInput("task", HTML('Task <a id="task_link" href="#">(task)</a>:'), value = "megablast"),          
+                           textInput("out", HTML('Output File <a id="out_link" href="#">(out)</a>:'), value = "blast.txt"),    
+                           numericInput("max_target_seqs", HTML('Max Target Seqs <a id="max_target_seqs_link" href="#">(max_target_seqs)</a>:'), value = 50, min = 1),
+                           sliderInput("perc_identity", HTML('Percentage Identity <a id="perc_identity_link" href="#">(perc_identity)</a>:'), min = 0, max = 100, value = 95, step = 0.5),
+                           sliderInput("qcov_hsp_perc", HTML('Query Coverage HSP Percentage <a id="qcov_hsp_perc_link" href="#">(qcov_hsp_perc)</a>:'), min = 0, max = 100, value = 95, step = 0.5),
                            sliderInput("specie_threshold", "Specie Threshold:", min = 0, max = 100, value = 99, step = 0.5),
                            sliderInput("genus_threshold", "Genus Threshold:", min = 0, max = 100, value = 97, step = 0.5),
                            sliderInput("family_threshold", "Family Threshold:", min = 0, max = 100, value = 95, step = 0.5),
-                           numericInput("num_threads", "Number of Threads:", value = 6, min = 1),
-                           numericInput("penalty", "Penalty:", value = NA, min = -100, max = 0, step = 1), 
-                           numericInput("reward", "Reward:", value = NA, min = 0, max = 100, step = 1),   
-                           numericInput("evalue", "E-value:", value = NA, min = 0),                      
-                           numericInput("word_size", "Word Size:", value = NA, min = 1),                 
-                           numericInput("gapopen", "Gap Open Penalty:", value = NA, min = 0),             
-                           numericInput("gapextend", "Gap Extend Penalty:", value = NA, min = 0),         
-                           numericInput("max_hsps", "Max HSPs:", value = NA, min = 1),                    
-                           numericInput("xdrop_ungap", "Xdrop Ungap:", value = NA, min = 0),             
-                           numericInput("xdrop_gap", "Xdrop Gap:", value = NA, min = 0),                  
-                           numericInput("xdrop_gap_final", "Xdrop Gap Final:", value = NA, min = 0),      
-                           numericInput("searchsp", "Search Space:", value = NA, min = 0),                
-                           numericInput("sum_stats", "Sum Stats:", value = NA),                          
-                           numericInput("no_greedy", "No Greedy:", value = NA),                          
-                           numericInput("min_raw_gapped_score", "Min Raw Gapped Score:", value = NA, min = 0), 
-                           textInput("template_type", "Template Type:", value = ""),                      
-                           numericInput("template_length", "Template Length:", value = NA, min = 0),      
-                           textInput("dust", "DUST Options:", value = ""),                               
-                           textInput("filtering_db", "Filtering DB:", value = ""),                        
-                           textInput("window_masker_taxid", "Window Masker Taxid:", value = ""),          
-                           textInput("window_masker_db", "Window Masker DB:", value = ""),                
-                           numericInput("soft_masking", "Soft Masking:", value = NA),                     
-                           numericInput("ungapped", "Ungapped:", value = NA),                             
-                           numericInput("culling_limit", "Culling Limit:", value = NA, min = 1),          
-                           numericInput("best_hit_overhang", "Best Hit Overhang:", value = NA, min = 0),  
-                           numericInput("best_hit_score_edge", "Best Hit Score Edge:", value = NA, min = 0), 
-                           numericInput("subject_besthit", "Subject Besthit:", value = NA),               
-                           numericInput("window_size", "Window Size:", value = NA, min = 1),              
-                           numericInput("off_diagonal_range", "Off Diagonal Range:", value = NA, min = 0),
-                           numericInput("use_index", "Use Index:", value = NA),                           
-                           textInput("index_name", "Index Name:", value = ""),                            
-                           numericInput("lcase_masking", "Lcase Masking:", value = NA),                   
-                           textInput("query_loc", "Query Loc:", value = ""),                              
-                           textInput("strand", "Strand:", value = ""),                                   
-                           numericInput("parse_deflines", "Parse Deflines:", value = NA),                
-                           numericInput("outfmt", "Output Format:", value = 6),                           
-                           numericInput("show_gis", "Show GIS:", value = NA),                            
-                           numericInput("num_descriptions", "Num Descriptions:", value = NA, min = 1),    
-                           numericInput("num_alignments", "Num Alignments:", value = NA, min = 1),       
-                           numericInput("line_length", "Line Length:", value = NA, min = 1),              
-                           numericInput("html", "HTML:", value = NA),                                   
-                           textInput("sorthits", "Sort Hits:", value = ""),                               
-                           textInput("sorthsps", "Sort HSPs:", value = ""),                              
-                           numericInput("mt_mode", "MT Mode:", value = NA, min = 0),                   
-                           numericInput("remote", "Remote:", value = NA),                                 
-                           actionButton("run_blast", "Run BLAST", class = "btn-primary")                  
+                           numericInput("num_threads", HTML('Number of Threads <a id="num_threads_link" href="#">(num_threads)</a>:'), value = 6, min = 1),
+                           numericInput("penalty", HTML('Penalty <a id="penalty_link" href="#">(penalty)</a>:'), value = NA, min = -100, max = 0, step = 1), 
+                           numericInput("reward", HTML('Reward <a id="reward_link" href="#">(reward)</a>:'), value = NA, min = 0, max = 100, step = 1),   
+                           numericInput("evalue", HTML('E-value <a id="evalue_link" href="#">(evalue)</a>:'), value = NA, min = 0),                      
+                           numericInput("word_size", HTML('Word Size <a id="word_size_link" href="#">(word_size)</a>:'), value = NA, min = 1),                 
+                           numericInput("gapopen", HTML('Gap Open Penalty <a id="gapopen_link" href="#">(gapopen)</a>:'), value = NA, min = 0),             
+                           numericInput("gapextend", HTML('Gap Extend Penalty <a id="gapextend_link" href="#">(gapextend)</a>:'), value = NA, min = 0),         
+                           numericInput("max_hsps", HTML('Max HSPs <a id="max_hsps_link" href="#">(max_hsps)</a>:'), value = NA, min = 1),                    
+                           numericInput("xdrop_ungap", HTML('Xdrop Ungap <a id="xdrop_ungap_link" href="#">(xdrop_ungap)</a>:'), value = NA, min = 0),             
+                           numericInput("xdrop_gap", HTML('Xdrop Gap <a id="xdrop_gap_link" href="#">(xdrop_gap)</a>:'), value = NA, min = 0),                  
+                           numericInput("xdrop_gap_final", HTML('Xdrop Gap Final <a id="xdrop_gap_final_link" href="#">(xdrop_gap_final)</a>:'), value = NA, min = 0),      
+                           numericInput("searchsp", HTML('Search Space <a id="searchsp_link" href="#">(searchsp)</a>:'), value = NA, min = 0),                
+                           numericInput("sum_stats", HTML('Sum Stats <a id="sum_stats_link" href="#">(sum_stats)</a>:'), value = NA),                          
+                           numericInput("no_greedy", HTML('No Greedy <a id="no_greedy_link" href="#">(no_greedy)</a>:'), value = NA),                          
+                           numericInput("min_raw_gapped_score", HTML('Min Raw Gapped Score <a id="min_raw_gapped_score_link" href="#">(min_raw_gapped_score)</a>:'), value = NA, min = 0), 
+                           textInput("template_type", HTML('Template Type <a id="template_type_link" href="#">(template_type)</a>:'), value = ""),                      
+                           numericInput("template_length", HTML('Template Length <a id="template_length_link" href="#">(template_length)</a>:'), value = NA, min = 0),      
+                           textInput("dust", HTML('DUST Options <a id="dust_link" href="#">(dust)</a>:'), value = ""),                               
+                           textInput("filtering_db", HTML('Filtering DB <a id="filtering_db_link" href="#">(filtering_db)</a>:'), value = ""),                        
+                           textInput("window_masker_taxid", HTML('Window Masker Taxid <a id="window_masker_taxid_link" href="#">(window_masker_taxid)</a>:'), value = ""),          
+                           textInput("window_masker_db", HTML('Window Masker DB <a id="window_masker_db_link" href="#">(window_masker_db)</a>:'), value = ""),                
+                           numericInput("soft_masking", HTML('Soft Masking <a id="soft_masking_link" href="#">(soft_masking)</a>:'), value = NA),                     
+                           numericInput("ungapped", HTML('Ungapped <a id="ungapped_link" href="#">(ungapped)</a>:'), value = NA),                             
+                           numericInput("culling_limit", HTML('Culling Limit <a id="culling_limit_link" href="#">(culling_limit)</a>:'), value = NA, min = 1),          
+                           numericInput("best_hit_overhang", HTML('Best Hit Overhang <a id="best_hit_overhang_link" href="#">(best_hit_overhang)</a>:'), value = NA, min = 0),  
+                           numericInput("best_hit_score_edge", HTML('Best Hit Score Edge <a id="best_hit_score_edge_link" href="#">(best_hit_score_edge)</a>:'), value = NA, min = 0), 
+                           numericInput("subject_besthit", HTML('Subject Besthit <a id="subject_besthit_link" href="#">(subject_besthit)</a>:'), value = NA),               
+                           numericInput("window_size", HTML('Window Size <a id="window_size_link" href="#">(window_size)</a>:'), value = NA, min = 1),              
+                           numericInput("off_diagonal_range", HTML('Off Diagonal Range <a id="off_diagonal_range_link" href="#">(off_diagonal_range)</a>:'), value = NA, min = 0),
+                           numericInput("use_index", HTML('Use Index <a id="use_index_link" href="#">(use_index)</a>:'), value = NA),                           
+                           textInput("index_name", HTML('Index Name <a id="index_name_link" href="#">(index_name)</a>:'), value = ""),                            
+                           numericInput("lcase_masking", HTML('Lcase Masking <a id="lcase_masking_link" href="#">(lcase_masking)</a>:'), value = NA),                   
+                           textInput("query_loc", HTML('Query Loc <a id="query_loc_link" href="#">(query_loc)</a>:'), value = ""),                              
+                           textInput("strand", HTML('Strand <a id="strand_link" href="#">(strand)</a>:'), value = ""),                                   
+                           numericInput("parse_deflines", HTML('Parse Deflines <a id="parse_deflines_link" href="#">(parse_deflines)</a>:'), value = NA),                
+                           #numericInput("outfmt", "Output Format", value = 6),                           
+                           numericInput("show_gis", HTML('Show GIS <a id="show_gis_link" href="#">(show_gis)</a>:'), value = NA),                            
+                           numericInput("num_descriptions", HTML('Num Descriptions <a id="num_descriptions_link" href="#">(num_descriptions)</a>:'), value = NA, min = 1),    
+                           numericInput("num_alignments", HTML('Num Alignments <a id="num_alignments_link" href="#">(num_alignments)</a>:'), value = NA, min = 1),       
+                           numericInput("line_length", HTML('Line Length <a id="line_length_link" href="#">(line_length)</a>:'), value = NA, min = 1),              
+                           numericInput("html", HTML('HTML <a id="html_link" href="#">(html)</a>:'), value = NA),                                   
+                           textInput("sorthits", HTML('Sort Hits <a id="sorthits_link" href="#">(sorthits)</a>:'), value = ""),                               
+                           textInput("sorthsps", HTML('Sort HSPs <a id="sorthsps_link" href="#">(sorthsps)</a>:'), value = ""),                              
+                           numericInput("mt_mode", HTML('MT Mode <a id="mt_mode_link" href="#">(mt_mode)</a>:'), value = NA, min = 0),                   
+                           numericInput("remote", HTML('Remote <a id="remote_link" href="#">(remote)</a>:'), value = NA),                                 
+                           actionButton("run_blast", "Run BLAST", class = "btn-primary")                                 
                   )
+                  
       )
     ),
     
@@ -428,6 +445,66 @@ server <- function(input, output, session) {
   drawn_features <- reactiveVal(NULL)
   polygon_data <- reactiveVal(NULL)
   
+  onclick("replace_synonyms_link", {
+    browseURL("https://brunobrr.github.io/bdc/reference/bdc_query_names_taxadb.html")
+  })
+  
+  ids <- c("replace_synonyms_link", "suggest_names_link", "suggestion_distance_link", "db_link", "rank_name_link", "rank_link", 
+           "parallel_link", "ncores_link", "export_accepted_link")
+  
+  lapply(ids, function(id) {
+    onclick(id, {
+      browseURL("https://brunobrr.github.io/bdc/reference/bdc_query_names_taxadb.html")
+    })
+  })
+  
+  onclick("ndec_link", {
+    browseURL("https://brunobrr.github.io/bdc/reference/bdc_coordinates_precision.html")
+  })
+  
+  ids1 <- c("clustering_level_link", "tests_link", "capitals_rad_link", "centroids_rad_link",
+            "centroids_detail_link", "inst_rad_link", "outliers_mtp_link", "outliers_td_link",
+            "outliers_size_link", "range_rad_link", "zeros_rad_link")
+  
+  lapply(ids1, function(id) {
+    onclick(id, {
+      browseURL("https://www.rdocumentation.org/packages/CoordinateCleaner/versions/3.0.1/topics/clean_coordinates")
+    })
+  })
+  
+  onclick("year_threshold_link", {
+    browseURL("https://brunobrr.github.io/bdc/reference/bdc_year_outOfRange.html")
+  })
+  
+  ids2 <- c("parse_seqids_link", "database_type_link", "title_link", "out_link", "hash_index_link",
+           "mask_data_link", "mask_id_link", "mask_desc_link", "gi_mask_link", "gi_mask_name_link",
+           "max_file_sz_link", "logfile_link", "taxid_link", "taxid_map_link")
+  
+  lapply(ids2, function(id) {
+    onclick(id, {
+      browseURL("https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/")
+    })
+  })
+  
+  ids3 <- c("database_file_link", "query_link", "task_link", "out_link",
+           "max_target_seqs_link", "perc_identity_link", "qcov_hsp_perc_link",
+           "num_threads_link", "penalty_link", "reward_link",
+           "evalue_link", "word_size_link", "gapopen_link", "gapextend_link", "max_hsps_link", "xdrop_ungap_link",
+           "xdrop_gap_link", "xdrop_gap_final_link", "searchsp_link", "sum_stats_link", "no_greedy_link",
+           "min_raw_gapped_score_link", "template_type_link", "template_length_link", "dust_link", "filtering_db_link",
+           "window_masker_taxid_link", "window_masker_db_link", "soft_masking_link", "ungapped_link",
+           "culling_limit_link", "best_hit_overhang_link", "best_hit_score_edge_link", "subject_besthit_link",
+           "window_size_link", "off_diagonal_range_link", "use_index_link", "index_name_link", "lcase_masking_link",
+           "query_loc_link", "strand_link", "parse_deflines_link", "show_gis_link", "num_descriptions_link",
+           "num_alignments_link", "line_length_link", "html_link", "sorthits_link", "sorthsps_link", "mt_mode_link",
+           "remote_link")
+  
+  lapply(ids3, function(id) {
+    onclick(id, {
+      browseURL("https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/")
+    })
+  })
+  
   observe({
     #img_path <- "C:/Users/fabricio/Desktop/fabricioA14/refDBdelimiter/www/refdb.png"
     img_path <- system.file("www", "refdb.png", package = "refDBdelimiter")
@@ -453,22 +530,22 @@ server <- function(input, output, session) {
     additional_fields <- input$additional_fields
     fields <- c(default_fields, additional_fields)
     
-      # Adding error handling for file reading
-  if (!file.exists(input$input_file)) {
-    showNotification("Input file not found.", type = "error")
-    return(NULL)
-  }
-
-  data <- tryCatch({
-    fread(input$input_file, select = fields, nrows = nrows)
-  }, error = function(e) {
-    showNotification("Error reading input file.", type = "error")
-    return(NULL)
-  })
-
-  if (is.null(data)) {
-    return(NULL)  # Stop further processing if data could not be read
-  }
+    # Adding error handling for file reading
+    if (!file.exists(input$input_file)) {
+      showNotification("Input file not found.", type = "error")
+      return(NULL)
+    }
+    
+    data <- tryCatch({
+      fread(input$input_file, select = fields, nrows = nrows)
+    }, error = function(e) {
+      showNotification("Error reading input file.", type = "error")
+      return(NULL)
+    })
+    
+    if (is.null(data)) {
+      return(NULL)  # Stop further processing if data could not be read
+    }
     
     dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
       bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
@@ -536,9 +613,9 @@ server <- function(input, output, session) {
     })
   })
   
-suppressWarnings({
-  rm(data, dataPreProcess, xyFromLocality)
-})
+  suppressWarnings({
+    rm(data, dataPreProcess, xyFromLocality)
+  })
   #invisible(capture.output(gc()))
   
   # Taxonomy Process
@@ -605,10 +682,10 @@ suppressWarnings({
   })
   
   suppressWarnings({
-  rm(pre_filtered)
-})
+    rm(pre_filtered)
+  })
   #invisible(capture.output(gc()))
-
+  
   
   # Space Process
   observeEvent(input$run_space, {
@@ -676,7 +753,7 @@ suppressWarnings({
   })
   
   suppressWarnings({
-  rm(taxonomy_cleaned_data)
+    rm(taxonomy_cleaned_data)
   })
   #invisible(capture.output(gc()))
   
@@ -1122,7 +1199,7 @@ suppressWarnings({
     if (save_option == "selected_occurrence_data" || save_option == "both") {
       if (!is.null(input$formats_edit) && length(input$formats_edit) > 0) {
         refDB_SaveOccurrenceData(selected_occurrence_data, input$save_path_selected, formats = input$formats_edit)
-	Sys.sleep(5)
+        Sys.sleep(5)
         if (file.exists(input$save_path_selected)) {
           #showNotification("Selected occurrence data saved successfully.", type = "message")
         } else {
@@ -1135,7 +1212,7 @@ suppressWarnings({
     if (save_option == "excluded_occurrence_data" || save_option == "both") {
       if (!is.null(input$formats_edit) && length(input$formats_edit) > 0) {
         refDB_SaveOccurrenceData(excluded_occurrence_data, input$save_path_excluded, formats = input$formats_edit)
-	Sys.sleep(5)
+        Sys.sleep(5)
         if (file.exists(input$save_path_excluded)) {
           #showNotification("Excluded occurrence data saved successfully.", type = "message")
         } else {
@@ -1241,9 +1318,9 @@ suppressWarnings({
     assign("searchedValuesGlobal", taxaList, envir = .GlobalEnv)
     assign("drawnFeaturesGlobal", updatedFeatures, envir = .GlobalEnv)
     save(updatedFeatures, file = "updatedFeatures.RData")
-
-  # Cleanup global variables
-  rm(list = c("searchedValuesGlobal", "drawnFeaturesGlobal"), envir = .GlobalEnv)
+    
+    # Cleanup global variables
+    rm(list = c("searchedValuesGlobal", "drawnFeaturesGlobal"), envir = .GlobalEnv)
   })
   
   output$searchedValuesOutput_edit <- renderPrint({
@@ -1258,6 +1335,7 @@ suppressWarnings({
     Directory <- input$directory
     Database_File <- input$database_file
     query <- input$query
+    otu_table <- input$otu_table
     task <- input$task
     out <- input$out
     max_target_seqs <- input$max_target_seqs
@@ -1301,7 +1379,7 @@ suppressWarnings({
     query_loc <- if (input$query_loc == "") NULL else input$query_loc
     strand <- if (input$strand == "") NULL else input$strand
     parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
-    outfmt <- input$outfmt
+    outfmt <- 6
     show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
     num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
     num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
@@ -1312,7 +1390,7 @@ suppressWarnings({
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    refDB_Blast(Directory, Database_File, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    refDB_Blast(Directory, Database_File, query, otu_table, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                 Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                 gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                 min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
