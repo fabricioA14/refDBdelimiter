@@ -23,7 +23,6 @@
 #' @importFrom data.table fread
 #' @export
 
-
 refDBdelimiter <- function(run_in_browser = FALSE) {
   
   scrollable_legend_css <- "
@@ -530,22 +529,7 @@ server <- function(input, output, session) {
     additional_fields <- input$additional_fields
     fields <- c(default_fields, additional_fields)
     
-    # Adding error handling for file reading
-    if (!file.exists(input$input_file)) {
-      showNotification("Input file not found.", type = "error")
-      return(NULL)
-    }
-    
-    data <- tryCatch({
-      fread(input$input_file, select = fields, nrows = nrows)
-    }, error = function(e) {
-      showNotification("Error reading input file.", type = "error")
-      return(NULL)
-    })
-    
-    if (is.null(data)) {
-      return(NULL)  # Stop further processing if data could not be read
-    }
+    data <- fread(input$input_file, select = fields, nrows = nrows)
     
     dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
       bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
@@ -1390,7 +1374,7 @@ server <- function(input, output, session) {
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    refDB_Blast(Directory, Database_File, query, otu_table, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    refDB_Blast(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                 Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                 gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                 min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 

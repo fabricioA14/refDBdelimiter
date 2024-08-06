@@ -154,7 +154,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                             add_param("remote", remote)
   )
   
-  # Run blastn
+  # blastn
   system(paste0("wsl blastn -query ", paste0(linux_path, query), " -task ", task, " -db ", paste0(linux_path, Database_File), 
                 " -out ", out, " -max_target_seqs ", max_target_seqs, 
                 " -perc_identity ", perc_identity, 
@@ -162,7 +162,6 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                 " -num_threads ", num_threads, 
                 optional_params))
   
-  # Process the results
   system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
   
   csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)
