@@ -89,6 +89,24 @@ devtools::install_github("fabricioA14/refDBdelimiter")
   <img src="https://github.com/user-attachments/assets/1ba98b58-761b-4ee4-83b6-a79c93493fee" width="600"/>
 </p>
 
+### Taxonomic Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/215551ee-1980-4990-a820-f51be65ed20b" width="600"/>
+</p>
+
+### Spatial Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/1c68ee1b-22f1-4574-8842-b5fec5a0db93" width="600"/>
+</p>
+
+### Temporal Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9f599568-01bf-44b7-9bd9-9bc5b408754c" width="600"/>
+</p>
+
 ### Make Database
 
 To create a database, you need to acquire\define these files:
@@ -106,6 +124,12 @@ To create a database, you need to acquire\define these files:
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/8846abb5-26c4-45a2-b5d9-deada60902f1" width="600"/>
+</p>
+
+The image above illustrates the creation of a new database, displaying the current time, the path of the new database, its title, sequence type, and other relevant details. In this example, 17,507 sequences were added in 1.5962 seconds. This output will be printed to the screen in the RStudio session upon completion.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cee67c0a-cd46-49f4-8a48-1ee0eae1e1aa" width="600"/>
 </p>
 
 ## Features
