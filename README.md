@@ -99,7 +99,7 @@ To create a database, you need to acquire\define these files:
    - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/ac537a71-0898-4f30-a508-bcd0df127538" width="800"/>
+  <img src="https://github.com/user-attachments/assets/ac537a71-0898-4f30-a508-bcd0df127538" width="700"/>
 </p>
 
 ## Features
