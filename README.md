@@ -86,7 +86,7 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 ### Preprocessing
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/1ba98b58-761b-4ee4-83b6-a79c93493fee" width="600"/>
+  <img src="https://github.com/user-attachments/assets/ec35b074-8506-4626-94cb-32d7f30e449d" width="600"/>
 </p>
 
 ### Taxonomic Filter
@@ -105,6 +105,12 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/9f599568-01bf-44b7-9bd9-9bc5b408754c" width="600"/>
+</p>
+
+### Interactive Map
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2e04b2cf-c774-44dd-a0a1-2b5c1151504f" width="600"/>
 </p>
 
 ### Make Database
@@ -130,6 +136,76 @@ The image above illustrates the creation of a new database, displaying the curre
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/cee67c0a-cd46-49f4-8a48-1ee0eae1e1aa" width="600"/>
+</p>
+
+### Taxonomic Assignment
+
+The **Taxonomic Assignment** tab provides a user interface for configuring and running a BLAST (Basic Local Alignment Search Tool) analysis for taxonomic assignment of sequences. Below is a detailed explanation of each input parameter and its function:
+
+- **Directory**: Specify the directory where your input files are located.
+- **Database File**: Enter the path to the database file you want to use for the BLAST search.
+- **Query File**: Provide the path to the query file containing the sequences to be analyzed, typically in FASTA format (default: `otus.fasta`).
+- **OTU Table**: Specify the path to the OTU (Operational Taxonomic Unit) table.
+- **Task**: Select the BLAST task to be performed (default: `megablast`).
+- **Output File**: Enter the path for the output file where the BLAST results will be saved (default: `blast.txt`).
+- **Max Target Seqs**: Set the maximum number of target sequences to keep for each query (default: 50).
+- **Percentage Identity**: Use the slider to set the minimum percentage identity for matches (default: 95%).
+- **Query Coverage HSP Percentage**: Set the minimum query coverage as a percentage of the HSP (High-scoring Segment Pair) (default: 95%).
+- **Specie Threshold**: Use the slider to set the species-level threshold percentage. All OTUs identified above this cutoff will have valid species-level identification (default: 99%).
+- **Genus Threshold**: Use the slider to set the genus-level threshold percentage. All OTUs identified above this cutoff will have valid genus-level identification (default: 97%).
+- **Family Threshold**: Use the slider to set the family-level threshold percentage. All OTUs identified above this cutoff will have valid family-level identification (default: 95%).
+- **Number of Threads**: Specify the number of threads to use for the BLAST search (default: 6).
+- **Penalty**: Enter the penalty for a nucleotide mismatch (optional).
+- **Reward**: Enter the reward for a nucleotide match (optional).
+- **E-value**: Set the expectation value threshold for saving hits (optional).
+- **Word Size**: Specify the word size for wordfinder algorithm (optional).
+- **Gap Open Penalty**: Set the penalty for opening a gap (optional).
+- **Gap Extend Penalty**: Set the penalty for extending a gap (optional).
+- **Max HSPs**: Specify the maximum number of HSPs per subject sequence to keep (optional).
+- **Xdrop Ungap**: Set the drop-off value for ungapped extensions (optional).
+- **Xdrop Gap**: Set the drop-off value for gapped extensions (optional).
+- **Xdrop Gap Final**: Set the drop-off value for final gapped extensions (optional).
+- **Search Space**: Specify the effective length of the search space (optional).
+- **Sum Stats**: Enable or disable sum statistics (optional).
+- **No Greedy**: Set whether to use the greedy algorithm for nucleotide alignment (optional).
+- **Min Raw Gapped Score**: Set the minimum raw gapped score to keep an alignment (optional).
+- **Template Type**: Enter the template type (optional).
+- **Template Length**: Specify the template length (optional).
+- **DUST Options**: Enter DUST options for filtering (optional).
+- **Filtering DB**: Specify the filtering database (optional).
+- **Window Masker Taxid**: Enter the window masker taxid (optional).
+- **Window Masker DB**: Specify the window masker database (optional).
+- **Soft Masking**: Enable or disable soft masking (optional).
+- **Ungapped**: Enable or disable ungapped alignment (optional).
+- **Culling Limit**: Set the culling limit for the number of HSPs (optional).
+- **Best Hit Overhang**: Set the best hit overhang value (optional).
+- **Best Hit Score Edge**: Set the best hit score edge value (optional).
+- **Subject Besthit**: Enable or disable subject besthit (optional).
+- **Window Size**: Set the window size for window masker (optional).
+- **Off Diagonal Range**: Specify the off-diagonal range for the window masker (optional).
+- **Use Index**: Enable or disable the use of index (optional).
+- **Index Name**: Specify the index name (optional).
+- **Lcase Masking**: Enable or disable lowercase masking (optional).
+- **Query Loc**: Specify the location on the query sequence (optional).
+- **Strand**: Specify the strand for the BLAST search (optional).
+- **Parse Deflines**: Enable or disable parsing of deflines (optional).
+- **Output Format**: Set the output format for the BLAST results (default: 6).
+- **Show GIS**: Enable or disable showing of GIS (optional).
+- **Num Descriptions**: Set the number of descriptions to show (optional).
+- **Num Alignments**: Set the number of alignments to show (optional).
+- **Line Length**: Specify the line length for alignments (optional).
+- **HTML**: Enable or disable HTML output (optional).
+- **Sort Hits**: Specify criteria for sorting hits (optional).
+- **Sort HSPs**: Specify criteria for sorting HSPs (optional).
+- **MT Mode**: Set the MT mode (optional).
+- **Remote**: Enable or disable remote BLAST (optional).
+
+When you click the **"Run BLAST"** button, the input parameters are used to configure and execute a BLAST search using the `refDB_Blast` function. The results of the BLAST search will be outputted according to the specified parameters.
+
+This section of the interface provides a comprehensive set of options to customize the BLAST search, making it highly adaptable to different research needs and data types.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8a75b9e9-10ee-4560-84ad-dd55287eb450" width="600"/>
 </p>
 
 ## Features
