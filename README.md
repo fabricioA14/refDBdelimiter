@@ -98,6 +98,10 @@ To create a database, you need to acquire\define these files:
    - **Exclude UNVERIFIED Sequences**: This parameter allows you to exclude sequences labeled as UNVERIFIED from the database. This can improve the reliability and accuracy of the data by ensuring that only verified sequences are included.
    - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/5733a11a-96cb-403e-9704-08b701d6e625" alt="2024-08-0421-39-45-ezgif com-cut" width="700">
+</p>
+
 ## Features
 
 - **Shiny Integration**: All functionalities run within an interactive Shiny app for seamless analysis and visualization.
