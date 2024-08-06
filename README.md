@@ -98,8 +98,10 @@ To create a database, you need to acquire\define these files:
    - **Exclude UNVERIFIED Sequences**: This parameter allows you to exclude sequences labeled as UNVERIFIED from the database. This can improve the reliability and accuracy of the data by ensuring that only verified sequences are included.
    - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
 
+https://github.com/user-attachments/assets/46fbe7a9-fc5a-4ad5-8587-c3c8c517c118
+
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/ac537a71-0898-4f30-a508-bcd0df127538" width="700"/>
+  <img src="https://github.com/user-attachments/assets/8846abb5-26c4-45a2-b5d9-deada60902f1" width="600"/>
 </p>
 
 ## Features
