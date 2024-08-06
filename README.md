@@ -83,6 +83,12 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 ```
 ## Usage
 
+### Preprocessing
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/1ba98b58-761b-4ee4-83b6-a79c93493fee" width="600"/>
+</p>
+
 ### Make Database
 
 To create a database, you need to acquire\define these files:
@@ -97,8 +103,6 @@ To create a database, you need to acquire\define these files:
    - **Genus Flexibility**: This parameter allows the database to include all species within a genus if any species of that genus occurs in the area of interest. This helps to address the lack of sequences available in NCBI molecular reference databases. 
    - **Exclude UNVERIFIED Sequences**: This parameter allows you to exclude sequences labeled as UNVERIFIED from the database. This can improve the reliability and accuracy of the data by ensuring that only verified sequences are included.
    - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
-
-https://github.com/user-attachments/assets/46fbe7a9-fc5a-4ad5-8587-c3c8c517c118
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/8846abb5-26c4-45a2-b5d9-deada60902f1" width="600"/>
