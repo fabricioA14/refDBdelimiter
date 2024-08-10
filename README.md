@@ -83,6 +83,36 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 ```
 ## Usage
 
+### Preprocessing
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ec35b074-8506-4626-94cb-32d7f30e449d" width="600"/>
+</p>
+
+### Taxonomic Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/215551ee-1980-4990-a820-f51be65ed20b" width="600"/>
+</p>
+
+### Spatial Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/1c68ee1b-22f1-4574-8842-b5fec5a0db93" width="600"/>
+</p>
+
+### Temporal Filter
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9f599568-01bf-44b7-9bd9-9bc5b408754c" width="600"/>
+</p>
+
+### Interactive Map
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2e04b2cf-c774-44dd-a0a1-2b5c1151504f" width="600"/>
+</p>
+
 ### Make Database
 
 To create a database, you need to acquire\define these files:
@@ -97,6 +127,43 @@ To create a database, you need to acquire\define these files:
    - **Genus Flexibility**: This parameter allows the database to include all species within a genus if any species of that genus occurs in the area of interest. This helps to address the lack of sequences available in NCBI molecular reference databases. 
    - **Exclude UNVERIFIED Sequences**: This parameter allows you to exclude sequences labeled as UNVERIFIED from the database. This can improve the reliability and accuracy of the data by ensuring that only verified sequences are included.
    - Additional parameters associated with the `makeblastdb` function can be set as needed. For a complete list of these parameters and their descriptions, refer to the [`makeblastdb`](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/) application options.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8846abb5-26c4-45a2-b5d9-deada60902f1" width="600"/>
+</p>
+
+The image above illustrates the creation of a new database, displaying the current time, the path of the new database, its title, sequence type, and other relevant details. In this example, 17,507 sequences were added in 1.5962 seconds. This output will be printed to the screen in the RStudio session upon completion.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cee67c0a-cd46-49f4-8a48-1ee0eae1e1aa" width="600"/>
+</p>
+
+### Taxonomic Assignment
+
+The **Taxonomic Assignment** tab provides a user interface for configuring and running a BLAST (Basic Local Alignment Search Tool) analysis for taxonomic assignment of sequences. Below is a detailed explanation of each input parameter and its function:
+
+- **Directory**: Specify the directory where your input files are located.
+- **Database File**: Enter the path to the database file you want to use for the BLAST search.
+- **Query File**: Provide the path to the query file containing the sequences to be analyzed, typically in FASTA format (default: `otus.fasta`).
+- **OTU Table**: Specify the path to the OTU (Operational Taxonomic Unit) table.
+- **Task**: Select the BLAST task to be performed (default: `megablast`).
+- **Output File**: Enter the path for the output file where the BLAST results will be saved (default: `blast.txt`).
+- **Max Target Seqs**: Set the maximum number of target sequences to keep for each query (default: 50).
+- **Percentage Identity**: Use the slider to set the minimum percentage identity for matches (default: 95%).
+- **Query Coverage HSP Percentage**: Set the minimum query coverage as a percentage of the HSP (High-scoring Segment Pair) (default: 95%).
+- **Specie Threshold**: Use the slider to set the species-level threshold percentage. All OTUs identified above this cutoff will have valid species-level identification (default: 99%).
+- **Genus Threshold**: Use the slider to set the genus-level threshold percentage. All OTUs identified above this cutoff will have valid genus-level identification (default: 97%).
+- **Family Threshold**: Use the slider to set the family-level threshold percentage. All OTUs identified above this cutoff will have valid family-level identification (default: 95%).
+- **Number of Threads**: Specify the number of threads to use for the BLAST search (default: 6).
+- For additional parameters and detailed descriptions, refer to the official [BLASTn](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/) manual.
+
+When you click the **"Run BLAST"** button, the input parameters are used to configure and execute a BLAST search using the `refDB_Blast` function. The results of the BLAST search will be outputted according to the specified parameters.
+
+This section of the interface provides a comprehensive set of options to customize the BLAST search, making it highly adaptable to different research needs and data types.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8a75b9e9-10ee-4560-84ad-dd55287eb450" width="600"/>
+</p>
 
 ## Features
 
