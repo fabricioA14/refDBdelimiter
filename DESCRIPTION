@@ -20,10 +20,12 @@ Description: Toolset to create molecular reference databases with geographic inf
 License: MIT + file LICENSE
 URL: https://github.com/fabricioA14/refDBdelimiter/
 Depends: 
-    R (>= 4.0.0)
+    R (>= 4.0.0),
+    sf (>= 1.0.16)
 Imports:
+    Biostrings
     dplyr,
-    sf,
+    DT,
     ggplot2,
     RColorBrewer,
     shiny,

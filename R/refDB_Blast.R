@@ -235,7 +235,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   taxa_names_df <- taxa_names_df[, -ncol(taxa_names_df)]
   
   taxa_names_df <- taxa_names_df %>%
-    filter(rank %in% c("phylum", "class", "order", "family", "genus", "species", NA)) %>%
+    filter(rank %in% c("kingdom", "phylum", "class", "order", "family", "genus", "species", NA)) %>%
     group_by(Taxa) %>%
     distinct()
   
@@ -274,8 +274,8 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
     taxa_names_df_rem <- taxa_names_df_rem[, c("Taxa", names(taxa_names_df_rem)[1:(ncol(taxa_names_df_rem) - 1)])]
     taxa_names_df_rem <- taxa_names_df_rem[, -ncol(taxa_names_df_rem)]
     
-    taxa_names_df_rem <- taxa_names_df_rem %>%
-      filter(rank %in% c("phylum", "class", "order", "family", "genus", "species", NA)) %>%
+    taxa_names_df <- taxa_names_df %>%
+      filter(rank %in% c("kingdom", "phylum", "class", "order", "family", "genus", "species", NA)) %>%
       group_by(Taxa) %>%
       distinct()
     
@@ -307,9 +307,9 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   # Create new columns in the dataframe for the split content
   identified_otus <- cbind(qseqid = first_part, seqid = second_part, identified_otus[2:ncol(identified_otus)])
   
-  colnames(identified_otus) <- c("qseqid", "seqid", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  colnames(identified_otus) <- c("qseqid", "seqid", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
   
-  cl.max <- cbind(identified_otus[, 1:8], cl.max_[, 3])
+  cl.max <- cbind(identified_otus[, 1:9], cl.max_[, 3])
   
   ########## File = Samples ##########
   

@@ -22,7 +22,6 @@
 #' @importFrom countrycode countrycode
 #' @importFrom data.table fread
 #' @export
-
 refDBdelimiter <- function(run_in_browser = FALSE) {
   
   scrollable_legend_css <- "
@@ -149,7 +148,7 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           textInput("save_path_pre", "Save Path for Pre-Treatment:", "1_bdc_PreProcess_cleaned"),
+                           textInput("save_path_pre", "Save Path for Pre-Treatment:", "1_PreProcess_cleaned"),
                            sliderInput("dist", HTML('Distance for Inconsistent Coordinates <a id="dist_link" href="#">(dist)</a>:'), 
                                        min = 0.01, max = 1.0, value = 0.1, step = 0.01),
                            tags$div("Decimal Degrees", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
@@ -189,7 +188,7 @@ ui <- fluidPage(
                            checkboxInput("parallel", HTML('Use parallel processing <a id="parallel_link" href="#">(parallel)</a>?'), TRUE),
                            numericInput("ncores", HTML('Number of cores <a id="ncores_link" href="#">(ncores)</a>:'), value = 4, min = 1),
                            checkboxInput("export_accepted", HTML('Export accepted names <a id="export_accepted_link" href="#">(export_accepted)</a>?'), FALSE),
-                           textInput("save_path_tax", "Save Path for Taxonomy (output_file):", "2_bdc_taxonomy_cleaned"),
+                           textInput("save_path_tax", "Save Path for Taxonomy (output_file):", "2_taxonomy_cleaned"),
                            checkboxGroupInput("formats_tax", "Select Output Formats:",
                                               choices = list("shp" = "shp",
                                                              "geojson" = "geojson",
@@ -251,7 +250,7 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           textInput("save_path_space", "Save Path for Space:", "3_bdc_space_cleaned"),
+                           textInput("save_path_space", "Save Path for Space:", "3_space_cleaned"),
                            checkboxGroupInput("formats_space", "Select Output Formats:",
                                               choices = list("shp" = "shp",
                                                              "geojson" = "geojson",
@@ -271,7 +270,7 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           textInput("save_path_time", "Save Path for Time:", "4_bdc_time_cleaned"),
+                           textInput("save_path_time", "Save Path for Time:", "4_time_cleaned"),
                            checkboxGroupInput("formats_time", "Select Output Formats:",
                                               choices = list("shp" = "shp",
                                                              "geojson" = "geojson",
@@ -375,7 +374,7 @@ ui <- fluidPage(
                            textInput("query_loc", HTML('Query Loc <a id="query_loc_link" href="#">(query_loc)</a>:'), value = ""),                              
                            textInput("strand", HTML('Strand <a id="strand_link" href="#">(strand)</a>:'), value = ""),                                   
                            numericInput("parse_deflines", HTML('Parse Deflines <a id="parse_deflines_link" href="#">(parse_deflines)</a>:'), value = NA),                
-                           #numericInput("outfmt", "Output Format", value = 6),                           
+                           numericInput("outfmt", "Output Format", value = 6),                           
                            numericInput("show_gis", HTML('Show GIS <a id="show_gis_link" href="#">(show_gis)</a>:'), value = NA),                            
                            numericInput("num_descriptions", HTML('Num Descriptions <a id="num_descriptions_link" href="#">(num_descriptions)</a>:'), value = NA, min = 1),    
                            numericInput("num_alignments", HTML('Num Alignments <a id="num_alignments_link" href="#">(num_alignments)</a>:'), value = NA, min = 1),       
@@ -386,7 +385,10 @@ ui <- fluidPage(
                            numericInput("mt_mode", HTML('MT Mode <a id="mt_mode_link" href="#">(mt_mode)</a>:'), value = NA, min = 0),                   
                            numericInput("remote", HTML('Remote <a id="remote_link" href="#">(remote)</a>:'), value = NA),                                 
                            actionButton("run_blast", "Run BLAST", class = "btn-primary")                                 
-                  )
+                  ),
+                  tabPanel("GBIF Submission",
+                           DT::dataTableOutput("editable_table"),
+                           actionButton("save_table", "Save Table"))
                   
       )
     ),
@@ -421,6 +423,55 @@ ui <- fluidPage(
                  div(class = "output-tab",
                      leafletOutput("edit_map")
                  )
+        ),
+        tabPanel("GBIF Submission",  # Add this tab
+                 tabsetPanel(
+                   tabPanel("Otu Table",
+                            div(class = "output-tab",
+                                fileInput("file_upload", "Upload Otu Table", accept = c(".csv", ".xlsx")),
+                                actionButton("load_data", "Load Data"),
+                                dataTableOutput("otu_table"),
+                                actionButton("save_otu_table", "Save Otu Table")
+                            )
+                   ),
+                   tabPanel("Taxonomic Information",
+                            fluidRow(
+                              column(5, 
+                                     fileInput("taxonomic_assignment_file", "Upload Taxonomic Assignment", accept = c(".txt", ".csv", ".xlsx"))
+                              ),
+                              column(5, 
+                                     fileInput("otus_file", "Upload Otus", accept = c(".fasta", ".fas"))
+                              )
+                            ),
+                            actionButton("load_taxonomic_data", "Load Data"),
+                            div(class = "output-tab",
+                                dataTableOutput("taxonomic_table")
+                            )
+                   ),
+                   tabPanel("Samples",
+                            div(class = "output-tab",
+                                h4("Optional Fields"),
+                                selectInput("optional_fields", "Select Optional Fields:",
+                                            choices = c("gbifID", "datasetKey", "occurrenceID", "countryCode", "locality", "stateProvince",
+                                                        "occurrenceStatus", "individualCount", "publishingOrgKey", "decimalLatitude", "decimalLongitude",
+                                                        "coordinateUncertaintyInMeters", "coordinatePrecision", "elevation", "elevationAccuracy", "depth",
+                                                        "depthAccuracy", "day", "month", "year", "basisOfRecord", "institutionCode", "collectionCode",
+                                                        "catalogNumber", "recordNumber", "identifiedBy", "dateIdentified", "license", "rightsHolder",
+                                                        "recordedBy", "typeStatus", "establishmentMeans", "lastInterpreted", "mediaType", "issue")
+,
+                                            multiple = TRUE),
+                                actionButton("add_columns", "Add Selected Columns"),
+                                dataTableOutput("samples_table"),
+                                actionButton("save_samples", "Save Samples Data")
+                            )
+                   ),
+                   tabPanel("Default Values",
+                            div(class = "output-tab",
+                                dataTableOutput("editable_table"),
+                                actionButton("save_table", "Save Table")
+                            )
+                   )
+                 )
         )
       )
     )
@@ -443,6 +494,8 @@ server <- function(input, output, session) {
   excluded_occurrence_data <- reactiveVal(NULL)
   drawn_features <- reactiveVal(NULL)
   polygon_data <- reactiveVal(NULL)
+  shapefile_path_state <- reactiveVal(NULL)
+  edited_map <- reactiveVal(NULL)
   
   onclick("replace_synonyms_link", {
     browseURL("https://brunobrr.github.io/bdc/reference/bdc_query_names_taxadb.html")
@@ -476,8 +529,8 @@ server <- function(input, output, session) {
   })
   
   ids2 <- c("parse_seqids_link", "database_type_link", "title_link", "out_link", "hash_index_link",
-           "mask_data_link", "mask_id_link", "mask_desc_link", "gi_mask_link", "gi_mask_name_link",
-           "max_file_sz_link", "logfile_link", "taxid_link", "taxid_map_link")
+            "mask_data_link", "mask_id_link", "mask_desc_link", "gi_mask_link", "gi_mask_name_link",
+            "max_file_sz_link", "logfile_link", "taxid_link", "taxid_map_link")
   
   lapply(ids2, function(id) {
     onclick(id, {
@@ -486,17 +539,17 @@ server <- function(input, output, session) {
   })
   
   ids3 <- c("database_file_link", "query_link", "task_link", "out_link",
-           "max_target_seqs_link", "perc_identity_link", "qcov_hsp_perc_link",
-           "num_threads_link", "penalty_link", "reward_link",
-           "evalue_link", "word_size_link", "gapopen_link", "gapextend_link", "max_hsps_link", "xdrop_ungap_link",
-           "xdrop_gap_link", "xdrop_gap_final_link", "searchsp_link", "sum_stats_link", "no_greedy_link",
-           "min_raw_gapped_score_link", "template_type_link", "template_length_link", "dust_link", "filtering_db_link",
-           "window_masker_taxid_link", "window_masker_db_link", "soft_masking_link", "ungapped_link",
-           "culling_limit_link", "best_hit_overhang_link", "best_hit_score_edge_link", "subject_besthit_link",
-           "window_size_link", "off_diagonal_range_link", "use_index_link", "index_name_link", "lcase_masking_link",
-           "query_loc_link", "strand_link", "parse_deflines_link", "show_gis_link", "num_descriptions_link",
-           "num_alignments_link", "line_length_link", "html_link", "sorthits_link", "sorthsps_link", "mt_mode_link",
-           "remote_link")
+            "max_target_seqs_link", "perc_identity_link", "qcov_hsp_perc_link",
+            "num_threads_link", "penalty_link", "reward_link",
+            "evalue_link", "word_size_link", "gapopen_link", "gapextend_link", "max_hsps_link", "xdrop_ungap_link",
+            "xdrop_gap_link", "xdrop_gap_final_link", "searchsp_link", "sum_stats_link", "no_greedy_link",
+            "min_raw_gapped_score_link", "template_type_link", "template_length_link", "dust_link", "filtering_db_link",
+            "window_masker_taxid_link", "window_masker_db_link", "soft_masking_link", "ungapped_link",
+            "culling_limit_link", "best_hit_overhang_link", "best_hit_score_edge_link", "subject_besthit_link",
+            "window_size_link", "off_diagonal_range_link", "use_index_link", "index_name_link", "lcase_masking_link",
+            "query_loc_link", "strand_link", "parse_deflines_link", "show_gis_link", "num_descriptions_link",
+            "num_alignments_link", "line_length_link", "html_link", "sorthits_link", "sorthsps_link", "mt_mode_link",
+            "remote_link")
   
   lapply(ids3, function(id) {
     onclick(id, {
@@ -793,21 +846,30 @@ server <- function(input, output, session) {
   
   # Load Shapefile Process
   observeEvent(input$load_shp, {
-    req(input$shp_path)
     shapefile_path <- input$shp_path
-    if (file.exists(shapefile_path)) {
-      polygon <- tryCatch({
-        st_read(shapefile_path)
-      }, error = function(e) {
-        showNotification("Error reading shapefile", type = "error")
-        NULL
-      })
-      if (!is.null(polygon)) {
-        polygon_data(st_transform(polygon, 4326))  # Transform the CRS of the polygon to match the points
-        showNotification("Shapefile loaded successfully.", type = "message")
-      }
+    if (shapefile_path == "") {
+      polygon_data(NULL)
+      shapefile_path_state(NULL)
+      #showNotification("No shapefile path provided. Previous shapefile cleared.", type = "warning")
     } else {
-      showNotification("Shapefile not found.", type = "error")
+      # Clear any previously loaded shapefile
+      polygon_data(NULL)
+      shapefile_path_state(NULL)
+      if (file.exists(shapefile_path)) {
+        polygon <- tryCatch({
+          st_read(shapefile_path)
+        }, error = function(e) {
+          showNotification("Error reading shapefile", type = "error")
+          NULL
+        })
+        if (!is.null(polygon)) {
+          polygon_data(st_transform(polygon, 4326))  # Transform the CRS of the polygon to match the points
+          shapefile_path_state(shapefile_path)
+          showNotification("Shapefile loaded successfully.", type = "message")
+        }
+      } else {
+        showNotification("Shapefile not found.", type = "error")
+      }
     }
   })
   
@@ -832,7 +894,10 @@ server <- function(input, output, session) {
         TRUE ~ "unknown"
       ))
     
-    visualization <- visualization %>% rename(taxa = scientificName_updated)
+    # Ensure scientificName_updated column exists
+    if ("scientificName_updated" %in% colnames(visualization)) {
+      visualization <- visualization %>% rename(taxa = scientificName_updated)
+    }
     
     # Convert data to sf
     sf_data <- st_as_sf(visualization, coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
@@ -843,7 +908,7 @@ server <- function(input, output, session) {
     }
     
     # Check if any points remain after filtering
-    if (nrow(sf_data) == 0) {
+    if (!is.null(polygon_data()) && nrow(sf_data) == 0) {
       showNotification("No point is inside the loaded polygon.", type = "error")
       return()
     }
@@ -858,8 +923,6 @@ server <- function(input, output, session) {
     
     visualization <- visualization %>%
       distinct(taxa, .keep_all = TRUE)
-    
-    time_cleaned(visualization)
     
     # Define a color palette for the species
     qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = visualization$taxa)
@@ -898,169 +961,176 @@ server <- function(input, output, session) {
         }
       ) %>%
       htmlwidgets::onRender("
-    function(el, x) {
-      var myMap = this;
-      var originalLayers = {};
-      var uniqueTaxa = new Set();
+function(el, x) {
+  var myMap = this;
+  var originalLayers = {};
+  var uniqueTaxa = new Set();
 
-      myMap.eachLayer(function(layer) {
-        if (layer.options && layer.options.layerId) {
-          originalLayers[layer.options.layerId] = layer;
-          uniqueTaxa.add(layer.options.layerId);
-        }
+  myMap.eachLayer(function(layer) {
+    if (layer.options && layer.options.layerId) {
+      originalLayers[layer.options.layerId] = layer;
+      uniqueTaxa.add(layer.options.layerId);
+    }
+  });
+
+  var selectedTaxa = Array.from(uniqueTaxa);
+  selectedTaxa.forEach(function(taxon) {
+    Object.values(originalLayers).forEach(function(layer) {
+      if (layer.options.layerId === taxon) {
+        myMap.addLayer(layer);
+      }
+    });
+  });
+
+  Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+
+  var searchControl = L.control({position: 'bottomleft'});
+
+  searchControl.onAdd = function(map) {
+    var div = L.DomUtil.create('div', 'info legend');
+    div.innerHTML = '<h4>Search Taxa</h4>';
+    div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
+    div.innerHTML += '<button id=\"search-button\">Search</button>';
+
+    // Adjust the search box position directly with inline style
+    div.style.marginBottom = '20px'; // Adjust as needed
+    div.style.padding = '10px';
+    div.style.backgroundColor = '#ffffff';
+    div.style.border = '2px solid #ddd';
+    div.style.borderRadius = '5px';
+
+    var searchBox = div.querySelector('#search-box');
+
+    searchBox.onfocus = function() {
+      myMap.dragging.disable();
+      myMap.touchZoom.disable();
+      myMap.doubleClickZoom.disable();
+      myMap.scrollWheelZoom.disable();
+    };
+
+    searchBox.onblur = function() {
+      myMap.dragging.enable();
+      myMap.touchZoom.enable();
+      myMap.doubleClickZoom.enable();
+      myMap.scrollWheelZoom.enable();
+    };
+
+    div.querySelector('#search-button').onclick = function() {
+      var searchValue = searchBox.value;
+      var taxaArray = searchValue.split(',').map(function(taxon) {
+        return taxon.trim();
       });
 
-      var selectedTaxa = Array.from(uniqueTaxa);
-      selectedTaxa.forEach(function(taxon) {
-        Object.values(originalLayers).forEach(function(layer) {
-          if (layer.options.layerId === taxon) {
-            myMap.addLayer(layer);
-          }
+      Object.values(originalLayers).forEach(function(layer) {
+        myMap.removeLayer(layer);
+      });
+
+      if (searchValue === 'all' || searchValue === '') {
+        selectedTaxa = Array.from(uniqueTaxa);
+        selectedTaxa.forEach(function(taxon) {
+          Object.values(originalLayers).forEach(function(layer) {
+            if (layer.options.layerId === taxon) {
+              myMap.addLayer(layer);
+            }
+          });
         });
-      });
+      } else {
+        var foundLayers = new Set();
+        taxaArray.forEach(function(taxon) {
+          Object.values(originalLayers).forEach(function(layer) {
+            var layerGroup = layer.options.layerId;
+            var isGenusSearch = taxon.endsWith(' (genus)');
+            var isFamilySearch = taxon.endsWith(' (family)');
+            var isOrderSearch = taxon.endsWith(' (order)');
+            var isClassSearch = taxon.endsWith(' (class)');
+            var isPhylumSearch = taxon.endsWith(' (phylum)');
+            var taxonWithoutSuffix = taxon.replace(' (genus)', '')
+                                          .replace(' (family)', '')
+                                          .replace(' (order)', '')
+                                          .replace(' (class)', '')
+                                          .replace(' (phylum)', '');
+
+            if (isGenusSearch) {
+              if (layer.options.popup.includes('Genus: ' + taxonWithoutSuffix + ' ')) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            } else if (isFamilySearch) {
+              if (layer.options.popup.includes('Family: ' + taxonWithoutSuffix + ' ')) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            } else if (isOrderSearch) {
+              if (layer.options.popup.includes('Order: ' + taxonWithoutSuffix + ' ')) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            } else if (isClassSearch) {
+              if (layer.options.popup.includes('Class: ' + taxonWithoutSuffix + ' ')) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            } else if (isPhylumSearch) {
+              if (layer.options.popup.includes('Phylum: ' + taxonWithoutSuffix + ' ')) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            } else {
+              if (layerGroup.includes(taxonWithoutSuffix)) {
+                myMap.addLayer(layer);
+                foundLayers.add(layer.options.layerId);
+              }
+            }
+          });
+        });
+        selectedTaxa = Array.from(foundLayers);
+      }
 
       Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
+      Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
 
-      var searchControl = L.control({position: 'bottomleft'});
-
-      searchControl.onAdd = function(map) {
-        var div = L.DomUtil.create('div', 'info legend');
-        div.innerHTML = '<h4>Search Taxa</h4>';
-        div.innerHTML += '<input type=\"text\" id=\"search-box\" placeholder=\"Search for species, genus, family, order, class, or phylum...\"><br>';
-        div.innerHTML += '<button id=\"search-button\">Search</button>';
-
-        var searchBox = div.querySelector('#search-box');
-
-        searchBox.onfocus = function() {
-          myMap.dragging.disable();
-          myMap.touchZoom.disable();
-          myMap.doubleClickZoom.disable();
-          myMap.scrollWheelZoom.disable();
-        };
-
-        searchBox.onblur = function() {
-          myMap.dragging.enable();
-          myMap.touchZoom.enable();
-          myMap.doubleClickZoom.enable();
-          myMap.scrollWheelZoom.enable();
-        };
-
-        div.querySelector('#search-button').onclick = function() {
-          var searchValue = searchBox.value;
-          var taxaArray = searchValue.split(',').map(function(taxon) {
-            return taxon.trim();
-          });
-
-          Object.values(originalLayers).forEach(function(layer) {
-            myMap.removeLayer(layer);
-          });
-
-          if (searchValue === 'all' || searchValue === '') {
-            selectedTaxa = Array.from(uniqueTaxa);
-            selectedTaxa.forEach(function(taxon) {
-              Object.values(originalLayers).forEach(function(layer) {
-                if (layer.options.layerId === taxon) {
-                  myMap.addLayer(layer);
-                }
-              });
-            });
-          } else {
-            var foundLayers = new Set();
-            taxaArray.forEach(function(taxon) {
-              Object.values(originalLayers).forEach(function(layer) {
-                var layerGroup = layer.options.layerId;
-                var isGenusSearch = taxon.endsWith(' (genus)');
-                var isFamilySearch = taxon.endsWith(' (family)');
-                var isOrderSearch = taxon.endsWith(' (order)');
-                var isClassSearch = taxon.endsWith(' (class)');
-                var isPhylumSearch = taxon.endsWith(' (phylum)');
-                var taxonWithoutSuffix = taxon.replace(' (genus)', '')
-                                              .replace(' (family)', '')
-                                              .replace(' (order)', '')
-                                              .replace(' (class)', '')
-                                              .replace(' (phylum)', '');
-
-                if (isGenusSearch) {
-                  if (layer.options.popup.includes('Genus: ' + taxonWithoutSuffix + ' ')) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                } else if (isFamilySearch) {
-                  if (layer.options.popup.includes('Family: ' + taxonWithoutSuffix + ' ')) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                } else if (isOrderSearch) {
-                  if (layer.options.popup.includes('Order: ' + taxonWithoutSuffix + ' ')) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                } else if (isClassSearch) {
-                  if (layer.options.popup.includes('Class: ' + taxonWithoutSuffix + ' ')) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                } else if (isPhylumSearch) {
-                  if (layer.options.popup.includes('Phylum: ' + taxonWithoutSuffix + ' ')) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                } else {
-                  if (layerGroup.includes(taxonWithoutSuffix)) {
-                    myMap.addLayer(layer);
-                    foundLayers.add(layer.options.layerId);
-                  }
-                }
-              });
-            });
-            selectedTaxa = Array.from(foundLayers);
-          }
-
-          Shiny.setInputValue('selected_taxa', selectedTaxa, {priority: 'event'});
-          Shiny.setInputValue('search_box', searchValue, {priority: 'event'});
-
-          requestAnimationFrame(function() {
-            searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
-            searchBox.scrollLeft = searchBox.scrollWidth;
-          });
-        };
-
-        return div;
-      };
-
-      searchControl.addTo(myMap);
-
-      myMap.on('draw:created', function(e) {
-        if (selectedTaxa.length > 0) {
-          var layer = e.layer;
-          var layerType = e.layerType;
-          Shiny.setInputValue('drawn_feature', {
-            type: layerType,
-            layer: layer.toGeoJSON(),
-            taxa: selectedTaxa
-          });
-          
-          Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
-          drawn_features(layer.toGeoJSON());
-        }
+      requestAnimationFrame(function() {
+        searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
+        searchBox.scrollLeft = searchBox.scrollWidth;
       });
+    };
 
-      var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
-      var maxWidth = 0;
+    return div;
+  };
 
-      legendItems.forEach(function(item) {
-        var width = item.clientWidth;
-        if (width > maxWidth) {
-          maxWidth = width;
-        }
+  searchControl.addTo(myMap);
+
+  myMap.on('draw:created', function(e) {
+    if (selectedTaxa.length > 0) {
+      var layer = e.layer;
+      var layerType = e.layerType;
+      Shiny.setInputValue('drawn_feature', {
+        type: layerType,
+        layer: layer.toGeoJSON(),
+        taxa: selectedTaxa
       });
-
-      var legend = document.querySelector('.leaflet-legend');
-      if (legend) {
-        legend.style.width = (maxWidth + 50) + 'px';
-      }
+      
+      Shiny.onInputChange('drawnFeaturesGlobal', layer.toGeoJSON());
+      drawn_features(layer.toGeoJSON());
     }
-  ") %>%
+  });
+
+  var legendItems = document.querySelectorAll('.leaflet-legend .legend-labels span');
+  var maxWidth = 0;
+
+  legendItems.forEach(function(item) {
+    var width = item.clientWidth;
+    if (width > maxWidth) {
+      maxWidth = width;
+    }
+  });
+
+  var legend = document.querySelector('.leaflet-legend');
+  if (legend) {
+    legend.style.width = (maxWidth + 50) + 'px';
+  }
+}
+")%>%
       addDrawToolbar(
         targetGroup = 'drawn',
         editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()),
@@ -1068,6 +1138,11 @@ server <- function(input, output, session) {
       )
     
     output$edit_map <- renderLeaflet(map_within_sa_edit)
+    
+    #time_cleaned(visualization)
+    
+    edited_map(visualization)
+    
   })
   
   # Save Data Process
@@ -1077,7 +1152,7 @@ server <- function(input, output, session) {
     genus_flexibility <- input$genus_flexibility
     
     # Insert the logic for the Save Data input here
-    time_cleaned_data <- time_cleaned()
+    time_cleaned_data <- edited_map()
     if (is.null(time_cleaned_data)) {
       showNotification("No data available for saving. Please run the previous processes first.", type = "error")
       return(NULL)
@@ -1310,11 +1385,13 @@ server <- function(input, output, session) {
   output$searchedValuesOutput_edit <- renderPrint({
     searchedValues()
     
-    rm(searchedValuesGlobal, drawnFeaturesGlobal)
-    gc()
+    suppressWarnings({
+      rm(searchedValuesGlobal, drawnFeaturesGlobal)
+    })
     
   })
   
+  #Taxonomic Assignment
   observeEvent(input$run_blast, {
     Directory <- input$directory
     Database_File <- input$database_file
@@ -1363,7 +1440,7 @@ server <- function(input, output, session) {
     query_loc <- if (input$query_loc == "") NULL else input$query_loc
     strand <- if (input$strand == "") NULL else input$strand
     parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
-    outfmt <- 6
+    outfmt <- input$outfmt
     show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
     num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
     num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
@@ -1384,11 +1461,330 @@ server <- function(input, output, session) {
                 sorthits, sorthsps, mt_mode, remote)
     
     if (file.exists(out)) {
-      showNotification("BLAST run completed successfully.", type = "message")
+      #showNotification("BLAST run completed successfully.", type = "message")
     } else {
-      showNotification("Error running BLAST.", type = "error")
+      #showNotification("Error running BLAST.", type = "error")
     }
   })
+  
+  # Placeholder for the Otu Table with no default data
+  otu_values <- reactiveVal(data.frame())
+  
+  # Reactive value to store the samples data
+  samples_data <- reactiveVal(data.frame())
+  
+  # Render the editable Otu Table
+  output$otu_table <- renderDT({
+    datatable(otu_values(), 
+              selection = list(
+                mode = "multiple",     # Allow multiple cell selection
+                target = "cell",       # Target cell selection
+                selected = NULL,       # No initial selection
+                class = "selected"     # Class applied to selected cells
+              ),
+              editable = list(
+                target = 'cell', 
+                disable = list(
+                  columns = c(0)   # Disable editing for the first column
+                )
+              ),
+              options = list(
+                dom = 'fti',            # Multiple values for DOM: length, filter, table, info, pagination, processing
+                ordering = FALSE,          # Disable column ordering
+                rownames = FALSE,          # Disable row names
+                pageLength = 15,           # Show 15 rows per page
+                lengthMenu = c(10, 15, 20),# Options for number of rows per page
+                autoWidth = FALSE,         # Disable auto width for columns
+                scrollX = TRUE,            # Enable horizontal scrolling
+                scrollY = "400px",         # Vertical scroll with height of 400 pixels
+                searching = TRUE,          # Enable search functionality
+                info = TRUE,               # Show table information
+                paging = TRUE,             # Enable pagination
+                columnDefs = list(
+                  list(targets = 0, className = "dt-left unselectable"), # Apply CSS class to the first column
+                  list(width = '200px', targets = "_all") # Define a minimum width for all columns
+                )
+              )
+    )
+  }, server = FALSE)
+  
+  # Load data from file input
+  observeEvent(input$load_data, {
+    req(input$file_upload)
+    file <- input$file_upload
+    
+    # Read data based on file type
+    if (grepl("\\.csv$", file$name)) {
+      otu_data <- read.csv(file$datapath)
+    } else if (grepl("\\.xlsx$", file$name)) {
+      otu_data <- readxl::read_xlsx(file$datapath)
+    } else if (grepl("\\.txt$", file$name)) {
+      otu_data <- read.delim(file$datapath)
+    }
+    
+    # Remove the name of the first column
+    colnames(otu_data)[1] <- " "
+    
+    otu_values(otu_data)
+    
+    # Initialize the Samples Table with mandatory columns and row names from OTU Table
+    sample_cols <- c("ID", "Event Date")
+    sample_data <- data.frame(matrix(ncol = length(sample_cols), nrow = ncol(otu_data) - 1))
+    colnames(sample_data) <- sample_cols
+    sample_data$ID <- colnames(otu_data)[-1]
+    samples_data(sample_data)
+  })
+  
+  # Capture the edited Otu Table
+  observeEvent(input$otu_table_cell_edit, {
+    info <- input$otu_table_cell_edit
+    str(info)  # For debugging purposes
+    if (!is.null(info)) {
+      new_otu_data <- otu_values()
+      if (info$row <= nrow(new_otu_data) && info$col <= ncol(new_otu_data)) {
+        new_otu_data[info$row, info$col] <- info$value  # Adjusting for 0-based index
+        otu_values(new_otu_data)
+        cat("Updated cell at row:", info$row, "column:", info$col, "with value:", info$value, "\n")
+      } else {
+        cat("Index out of bounds: row:", info$row, "column:", info$col, "\n")
+      }
+    }
+  })
+  
+  # Save the Otu Table
+  observeEvent(input$save_otu_table, {
+    saved_otu_data <- otu_values()
+    # Perform save operation (e.g., write to a file or database)
+    showNotification("Otu Table saved successfully.")
+  })
+  
+  # Placeholder for the Taxonomic Information data
+  taxonomic_values <- reactiveVal(data.frame())
+  
+  output$taxonomic_table <- renderDataTable({
+    datatable(taxonomic_values(), 
+              selection = list(mode = "multiple", target = "cell"),
+              editable = list(target = 'cell', disable = list(columns = c(0))),
+              options = list(dom = 'fti', ordering = FALSE, rownames = FALSE, columnDefs = list(
+                list(targets = 0, className = "dt-left unselectable")
+              ))
+    )
+  })
+  
+  observeEvent(input$load_taxonomic_data, {
+    req(input$taxonomic_assignment_file, input$otus_file)
+    
+    tax_file <- input$taxonomic_assignment_file
+    otu_fasta_file <- input$otus_file
+    
+    taxonomic_assignment <- NULL
+    
+    if (grepl("\\.csv$", tax_file$name)) {
+      taxonomic_assignment <- read.csv(tax_file$datapath)
+    } else if (grepl("\\.xlsx$", tax_file$name)) {
+      taxonomic_assignment <- readxl::read_xlsx(tax_file$datapath)
+    } else if (grepl("\\.txt$", tax_file$name)) {
+      taxonomic_assignment <- read.delim(tax_file$datapath)
+    }
+    
+    # Separar a tabela taxonômica
+    tax <- taxonomic_assignment %>% 
+      select(qseqid, Kingdom, Phylum, Class, Order, Family, Genus, Species)
+    
+    colnames(tax) <-  c("id", "kingdom", "phylum", "class", "order", "family", "genus", "species")
+    
+    # Load the FASTA file
+    fasta_file <- readDNAStringSet(otu_fasta_file$datapath)
+    
+    # Convert to a data frame
+    raw_otus <- data.frame(
+      id = names(fasta_file),
+      sequence = as.character(fasta_file),
+      stringsAsFactors = FALSE
+    )
+    
+    tax <- merge(tax, raw_otus[, c("id", "sequence")], by = "id", all.x = TRUE)
+    
+    #tax <- merged_df[, c("id", "sequence", setdiff(names(merged_df), c("id", "sequence")))]
+    
+    tax <- tax %>%
+      mutate(ScientificName = case_when(
+        !is.na(species) ~ species,
+        !is.na(genus) ~ genus,
+        !is.na(family) ~ family,
+        !is.na(order) ~ order,
+        !is.na(class) ~ class,
+        !is.na(phylum) ~ phylum,
+        !is.na(kingdom) ~ kingdom,
+        TRUE ~ NA_character_
+      ))
+    
+    tax <- tax[, c(names(tax)[1], "ScientificName", names(tax)[2:(ncol(tax)-1)])]
+    
+    taxonomic_values(tax)
+  })
+  
+  # Placeholder for the Samples Table with initial mandatory columns
+  samples_data <- reactiveVal(data.frame(ID = character(0), `Event Date` = character(0), stringsAsFactors = FALSE))
+  
+  # Add or remove selected columns in the Samples Table
+  observeEvent(input$add_columns, {
+    req(samples_data())
+    current_data <- samples_data()
+    new_cols <- input$optional_fields
+    
+    # Add new columns
+    for (col in new_cols) {
+      if (!col %in% colnames(current_data)) {
+        current_data[[col]] <- NA
+      }
+    }
+    
+    # Remove columns not selected
+    all_cols <- c("ID", "Event Date", new_cols)
+    current_data <- current_data[, all_cols, drop = FALSE]
+    
+    # Remove rows with all NA, "", or " " values
+    clean_data <- function(df) {
+      df[!apply(df, 1, function(row) all(is.na(row) | row == "" | row == " ")), ]
+    }
+    cleaned_current_data <- clean_data(current_data)
+    rownames(cleaned_current_data) <- seq_len(nrow(cleaned_current_data))
+    samples_data(cleaned_current_data)
+  })
+  
+  # Render the editable Samples Table
+  output$samples_table <- renderDT({
+    datatable(samples_data(), 
+              selection = list(
+                mode = "multiple",     # Allow multiple cell selection
+                target = "cell",       # Target cell selection
+                selected = NULL,       # No initial selection
+                class = "selected"     # Class applied to selected cells
+              ),
+              editable = list(
+                target = 'cell', 
+                disable = list(
+                  columns = c(0)   # Disable editing for the first column
+                )
+              ),
+              options = list(
+                dom = 'fti',            # Show filter, table, and information elements
+                ordering = FALSE,          # Disable column ordering
+                rownames = TRUE,           # Enable row names
+                pageLength = 15,           # Show 15 rows per page
+                lengthMenu = c(10, 15, 20),# Options for number of rows per page
+                autoWidth = FALSE,         # Disable auto width for columns
+                scrollX = TRUE,            # Enable horizontal scrolling
+                scrollY = "400px",         # Vertical scroll with height of 400 pixels
+                searching = TRUE,          # Enable search functionality
+                info = TRUE,               # Show table information
+                paging = TRUE,             # Enable pagination
+                columnDefs = list(
+                  list(targets = 0, className = "dt-left unselectable"), # Apply CSS class to the first column
+                  list(width = '40px', targets = 0), # Set a specific width for the first column (ID)
+                  list(width = '40px', targets = 1), # Set a specific width for the row number column
+                  list(width = '200px', targets = "_all") # Define a minimum width for all other columns
+                )
+              ),
+              callback = JS(
+                "table.on('draw', function(){",
+                "$('td').css('padding', '4px');",
+                "$('th').css('padding', '4px');",
+                "});"
+              )
+    )
+  }, server = FALSE)
+  
+  # Capture the edited Samples Table
+  observeEvent(input$samples_table_cell_edit, {
+    info <- input$samples_table_cell_edit
+    str(info)  # For debugging purposes
+    if (!is.null(info)) {
+      new_samples_data <- samples_data()
+      if (info$row <= nrow(new_samples_data) && info$col <= ncol(new_samples_data)) {
+        new_samples_data[info$row, info$col] <- info$value  # Adjusting for 0-based index
+        samples_data(new_samples_data)
+        cat("Updated cell at row:", info$row, "column:", info$col, "with value:", info$value, "\n")
+      } else {
+        cat("Index out of bounds: row:", info$row, "column:", info$col, "\n")
+      }
+    }
+  })
+  
+  # Save the Samples Table
+  observeEvent(input$save_samples, {
+    filtered_samples_data <- samples_data()
+    samples_data(filtered_samples_data)  # Update the samples_data with filtered data
+    # Perform save operation (e.g., write to a file or database)
+    showNotification("Samples Data saved successfully.")
+  })
+  
+  # Define the initial data for the Default Values table
+  initial_data <- data.frame(
+    term = c("env_medium", "target_gene", "target_subfragment", "pcr_primer_forward", "pcr_primer_name_forward", 
+             "pcr_primer_reverse", "pcr_primer_name_reverse", "sop", "seq_meth", "otu_db", "lib_layout", 
+             "otu_class_appr", "otu_seq_comp_appr", "pcr_primer_reference"),
+    value = c("soil [ENVO:00001998]", "ITS2", "ITS2", "GTGAATCATCGAATCTTTG", "gITS7", "TCCCTCCGCTTATTGATATGC", "ITS4",
+              "https://www.protocols.io/view/emp-its-illumina-amplicon-protocol-14eqnypg5dy/v1", "Illumina MiSeq", 
+              "UNITE v9.3", "paired", "dada2;ASV", "ncbi; blastn; min 98% identity; min 97% query coverage; accepting some competing names", 
+              "S2F: https://doi.org/10.1371/journal.pone.0080613 | ITS4: White, T. J., Bruns, T., Lee, S. J. W. T., & Taylor, J. (1990).")
+  )
+  
+  values <- reactiveVal(initial_data)
+  
+  # Render the editable Default Values table
+  output$editable_table <- renderDT({
+    datatable(values(), 
+              selection = list(
+                mode = "multiple",     # Allow multiple cell selection
+                target = "cell",       # Target cell selection
+                selected = NULL,       # No initial selection
+                class = "selected"     # Class applied to selected cells
+              ),
+              editable = list(
+                target = 'cell', 
+                disable = list(
+                  columns = c(0, 1)   # Disable editing for the first and second columns
+                )
+              ),
+              options = list(
+                dom = 'fti',            # Multiple values for DOM: length, filter, table, info, pagination, processing
+                ordering = FALSE,          # Disable column ordering
+                rownames = FALSE,          # Disable row names
+                pageLength = 15,           # Show 15 rows per page
+                lengthMenu = c(10, 15, 20),# Options for number of rows per page
+                autoWidth = TRUE,          # Enable auto width for columns
+                scrollX = TRUE,            # Enable horizontal scrolling
+                scrollY = "400px",         # Vertical scroll with height of 400 pixels
+                searching = TRUE,          # Enable search functionality
+                info = TRUE,               # Show table information
+                paging = TRUE,             # Enable pagination
+                columnDefs = list(
+                  list(targets = 0, className = "dt-left unselectable") # Apply CSS class to the first column
+                )
+              )
+    )
+  }, server = FALSE)
+  
+  # Capture the edited Default Values table
+  observeEvent(input$editable_table_cell_edit, {
+    info <- input$editable_table_cell_edit
+    str(info)  # For debugging purposes
+    if (!is.null(info)) {
+      new_data <- values()
+      new_data[info$row + 1, info$col + 1] <- info$value  # Adjusting for 0-based index
+      values(new_data)
+    }
+  })
+  
+  # Save the Default Values table
+  observeEvent(input$save_table, {
+    saved_data <- values()
+    # Perform save operation (e.g., write to a file or database)
+    showNotification("Table saved successfully.")
+  })
+  
 }
 
 if (run_in_browser) {
