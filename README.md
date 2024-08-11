@@ -9,7 +9,7 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Features Overview](#features)
+- [Overview](#overview)
 - [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -165,7 +165,7 @@ This section of the interface provides a comprehensive set of options to customi
   <img src="https://github.com/user-attachments/assets/8a75b9e9-10ee-4560-84ad-dd55287eb450" width="600"/>
 </p>
 
-## Features Overview
+## Overview
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/62b03877-6653-44be-83be-8fa468aa69c8" width="600"/>
