@@ -10,7 +10,6 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Overview](#overview)
-- [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -460,6 +459,50 @@ This section of the interface provides a comprehensive set of options to customi
 - Useful Links
   
   **NCBI:** [blastn application options](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/)
+
+### GBIF Data Submission
+
+This section outlines the necessary files and steps for preparing your eDNA data for submission to GBIF, following the Darwin Core (DwC) standard as described [here](https://docs.gbif-uat.org/edna-tool-guide/en/#dwc-standard). This process also adheres to the FAIR data principles, ensuring that your data is Findable, Accessible, Interoperable, and Reusable.
+
+### 1. **Uploading the OTU Table**
+   - **Objective:** Start by uploading the OTU table, which contains the occurrence data for the species detected.
+   - **Steps:**
+     - Use the "Browse..." button to select and upload your OTU table file (e.g., `otu_table.txt`).
+     - Click "Load Data" to display the contents of the table and ensure it is loaded correctly.
+
+### 2. **Uploading Taxonomic Assignment and OTU Sequence Data**
+   - **Objective:** Link the taxonomic assignment with the OTU sequences, which are essential for identifying species.
+   - **Steps:**
+     - Upload the taxonomic assignment file (e.g., `taxonomic_assignment.txt`).
+     - Upload the OTU sequence file (e.g., `otus.fasta`).
+     - Click "Load Data" to visualize the data and confirm the correct mapping between OTUs and taxonomic assignments.
+
+### 3. **Selecting Optional Fields for Metadata**
+   - **Objective:** Add additional metadata fields that are relevant for the submission, such as geographic coordinates and occurrence status.
+   - **Steps:**
+     - Choose from available fields like `decimalLatitude`, `occurrenceStatus`, `locality`, and others.
+     - Click "Add Selected Columns" to include these fields in your data.
+
+### 4. **Defining Default Values for Metadata**
+   - **Objective:** Set default values for specific metadata terms that are consistent across the dataset.
+   - **Steps:**
+     - Input default values for terms like `env_medium`, `target_gene`, and `otu_db`.
+     - Ensure that these values align with the requirements for GBIF submission.
+
+### 5. **Saving the Prepared Table**
+   - **Objective:** Save the prepared OTU table, taxonomic information, and associated metadata as required files for GBIF submission.
+   - **Steps:**
+     - Click "Save Table" after each preparation step to ensure all data is properly saved.
+     - The final output should be a set of files that include the OTU table, taxonomic assignments, and metadata, formatted according to the DwC standard.
+
+### Important Note
+The files formats described above are essential for preparing your metabarcoding dataset for GBIF submission. They are aligned with the Darwin Core (DwC) standard, which ensures that your eDNA data is correctly formatted and ready for integration into GBIF’s global biodiversity database. Additionally, by following these guidelines, you ensure that your data complies with the FAIR principles (Findable, Accessible, Interoperable, Reusable), making it more valuable and usable by the broader scientific community.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/9b9ae398-53ba-4aa2-bc2d-e85eba053e19" width="600"/>
+</p>
+
+For more details on the DwC standard and GBIF submission requirements, refer to the [GBIF eDNA Tool Guide](https://docs.gbif-uat.org/edna-tool-guide/en/#dwc-standard).
 
 ## Overview
 
