@@ -83,6 +83,74 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 ```
 ## Usage
 
+### Acquiring Data From Sources
+
+### GBIF
+
+1. **Create an Account**:
+   - Before starting, you must create an account and log in to GBIF. Visit [GBIF](https://www.gbif.org) and sign up if you don't have an account yet.
+
+2. **Log In**:
+   - Log in to your account to be able to access the data download features.
+
+3. **Search**:
+   - Apply additional filters as needed, such as location. In this example, "Siluriformes" is searched within the "South America" location filter.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4d6cb543-64cf-4670-8ac7-9d0fac6f084f" width="900"/>
+</p>
+
+4. **Select the Download Option"**:
+   - Click on the `Download` tab.
+   - Choose the download type as `Simple`, which provides a simplified version in a tab-delimited CSV format. The tool only works with this simplified version.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/218ba6e6-0758-4f40-b099-03f6b47b4cd1" width="900"/>
+</p>
+
+5. **Process and Wait for Download Availability"**:
+   - Depending on the size of the data, GBIF may take some time to process the request.
+   - You will receive an e-mail notification once your download is ready. In this example, 659,081 occurrences are being downloaded.
+   - Once the download is available, click the `Download` button to retrieve your file.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/148af978-3663-4152-86b8-1b8492d7322a" width="900"/>
+</p>
+
+### NCBI
+
+1. **Access the NCBI website**: Navigate to [NCBI](https://www.ncbi.nlm.nih.gov).
+2. **Select the database**:
+   - In the search bar, select `All Databases` from the dropdown menu.
+   - Type **"Siluriformes COI"** (or your desired search term) in the search bar.
+   - Click the `Search` button to start the search.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2db5f63d-37c2-4c56-8e5b-be23caf814b2" width="900"/>
+</p>
+
+3. **Filter by "Nucleotide"**:
+   - On the results page, locate the `Genomes` section and click on **"Nucleotide"**. This will filter the results to show only relevant nucleotide sequences.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/777567b7-1cc4-4d3f-a931-c00a6e2faff9" width="900"/>
+</p>
+
+4. **Select the sequences**:
+   - In the list of search results, you will see multiple entries for sequences related to your search term.
+   - To download all the sequences, go to the `Send to` menu located in the top right corner of the page.
+
+5. **Configure the download**:
+   - Select **"Complete Record"** to download all details of the sequences.
+   - Choose **"File"** as the destination.
+   - In the "Format" field, select **"FASTA"**.
+   - Under "Sort by", leave it as **"Default order"**.
+   - Click **"Create File"** to start downloading the FASTA file containing all sequences.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/05221fe8-b3ce-4733-a838-dffc379b9efc" width="900"/>
+</p>
+
 ### Preprocessing
 
 <p align="center">
