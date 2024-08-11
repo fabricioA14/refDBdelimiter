@@ -403,7 +403,7 @@ This section explains the parameters configured in the Temporal Filters tab of y
 
 ### Make Database
 
-To create a database, you need to acquire\define these files:
+To create a database, you need to define these parameters:
 
 1. **Mandatory Parameters**:
    - **Raw Database**: This is the database you will download in FASTA format from the NCBI website. Example: `ncbiChordata.fasta`. To download, go to the NCBI site, use "Send to - Complete Record - Choose Destination: Send to File - Format: FASTA".
