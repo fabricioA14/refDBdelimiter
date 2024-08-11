@@ -9,7 +9,7 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Features](#features)
+- [Features Overview](#features)
 - [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
@@ -165,7 +165,11 @@ This section of the interface provides a comprehensive set of options to customi
   <img src="https://github.com/user-attachments/assets/8a75b9e9-10ee-4560-84ad-dd55287eb450" width="600"/>
 </p>
 
-## Features
+## Features Overview
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/62b03877-6653-44be-83be-8fa468aa69c8" width="600"/>
+</p>
 
 - **Shiny Integration**: All functionalities run within an interactive Shiny app for seamless analysis and visualization.
 - **Preprocessing**: Preprocess biodiversity data using various cleaning and validation steps.
@@ -179,6 +183,9 @@ This section of the interface provides a comprehensive set of options to customi
   - **GPKG (GeoPackage)**: An open format that supports large datasets and stores both vector and raster data in a single file. Use this format for comprehensive datasets that include multiple layers of biological data, such as habitats, species distributions, and environmental variables.
   - **KML**: Suitable for visualizing geographic data in Google Earth. Use this format to create interactive maps for presentations or reports, showing migration patterns or habitat ranges of species.
   - **CSV**: Versatile and widely used for tabular data. Ideal for statistical analysis and data sharing. Use this format to export cleaned occurrence data for further analysis in software like R or Excel, or to share datasets with collaborators.
+- **Database Creation**: Once the data is cleaned and filtered, it is organized into a well-structured database, ready for use in various analyses.
+- **Molecular Identification**: Following database creation, the data is used for molecular identification processes, enabling the accurate classification of species based on genetic information.
+- **FAIR Submission**: The final processed data is submitted following the FAIR principles (Findable, Accessible, Interoperable, Reusable), ensuring that it is well-documented, easily accessible, and can be reused in future research.
 
 Each of these formats has its unique advantages depending on the type of analysis, visualization, or data sharing needs, allowing for flexible use of the processed biodiversity data.
 
