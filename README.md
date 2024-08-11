@@ -153,27 +153,247 @@ devtools::install_github("fabricioA14/refDBdelimiter")
 
 ### Preprocessing
 
+1. **Input File Path:**
+   - Specify the file path to your occurrence input dataset (CSV file downloaded previously from GBIF).
+   - Example: `C:/Data/occurrence_data.csv`
+
+2. **Number of Rows to Read:**
+   - Define how many rows from the file should be read during preprocessing.
+   - Default: `All` (reads the entire dataset)
+
+3. **Additional Columns to Import:**
+   - Indicate any additional columns from the input file that you want to include in the preprocessing.
+   - Example: `habitat, climate`
+   
+   ⚠️ **Warning:** Be cautious when adding many additional columns, especially if you are working with a very large dataset. This is particularly important if your goal is to work only with occurrence data and not to build a metabarcoding database.
+
+4. **Select Taxonomic Level for Visualization:**
+   - Choose the taxonomic level that will be used for visualization in the graph on the right.
+   - Example: `Family`
+
+5. **Save Path for Preprocess:**
+   - Define the path where the preprocessed data file will be saved.
+   - Default: `1_PreProcess_cleaned`
+
+6. **Distance for Inconsistent Coordinates (dist):**
+   - Adjust the distance in decimal degrees to identify and handle inconsistent coordinates.
+   - Default: `0.1`
+
+7. **Save Coordinates Output:**
+   - Check this option if you want to save the processed coordinates separately.
+
+8. **Select Output Formats:**
+   - Choose the output formats for the preprocessed data file. Options include:
+     - `shp`
+     - `geojson`
+     - `gpkg`
+     - `kml`
+     - `csv`
+
+9. **Run Preprocess:**
+   - Click this button to start preprocessing with the specified settings.
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/ec35b074-8506-4626-94cb-32d7f30e449d" width="600"/>
 </p>
 
+- Useful Links
+  
+  **bdc:** [bdc_coordinates_country_inconsistent](https://brunobrr.github.io/bdc/reference/bdc_coordinates_country_inconsistent.html)
+
 ### Taxonomic Filter
+
+This section explains the parameters configured in the Taxonomic Filters tab of your Shiny app for taxonomic data filtering.
+
+1. **Replace synonyms by accepted names (`replace_synonyms`):**
+   - Check this option to automatically replace any synonyms in your dataset with their accepted taxonomic names.
+
+2. **Suggest names for misspelled names (`suggest_names`):**
+   - Enable this feature to allow the system to suggest corrections for any misspelled taxonomic names in your dataset.
+
+3. **Distance between the searched and suggested names (`suggestion_distance`):**
+   - Adjust the slider to set the maximum allowable distance between the entered name and the suggested corrected name.
+   - Example: `0.9` (A higher value increases the tolerance for differences between names.)
+
+4. **Taxonomic Database (`db`):**
+   - Specify the taxonomic database to be used for validating and retrieving taxonomic information.
+   - The only one available at the moment is `gbif`.
+
+5. **Taxonomic Rank Name (`rank_name`):**
+   - Enter the specific taxonomic rank name that you want to focus on during filtering.
+   - Example: `Chordata`
+
+6. **Taxonomic Rank (`rank`):**
+   - Select the level of taxonomic rank you wish to filter or analyze within your data.
+   - Example: `Phylum`
+
+⚠️ **Warning:** It is very important to ensure that your Taxonomic Rank Name and Taxonomic Rank parameters are synchronized.
+Examples:
+  - If your Taxonomic Rank Name is `Chordata`, your Taxonomic Rank should be `Phylum`.
+  - If your Taxonomic Rank Name is `Gymnotiformes`, your Taxonomic Rank should be `Order`.
+
+7. **Select Taxonomic Level for Visualization:**
+   - Choose the taxonomic level that will be used for visualization in the graph on the right.
+   - Example: `Family`
+
+8. **Use parallel processing (`parallel`):**
+   - Check this option to enable parallel processing, which can speed up the filtering process by using multiple cores.
+
+9. **Number of cores (`ncores`):**
+   - Specify the number of CPU cores to be used if parallel processing is enabled.
+   - Example: `4`
+
+10. **Export accepted names (`export_accepted`):**
+    - Enable this option if you want to export the accepted taxonomic names to a separate file.
+
+11. **Save Path for Taxonomy (`output_file`):**
+    - Define the path where the filtered and cleaned taxonomic data will be saved.
+    - Default: `2_taxonomy_cleaned`
+
+12. **Select Output Formats:**
+    - Choose the output formats for the filtered taxonomic data file. Options include:
+      - `shp`
+      - `geojson`
+      - `gpkg`
+      - `kml`
+      - `csv`
+
+13. **Run Taxonomic Filters:**
+    - Click this button to start the taxonomic filtering process with the specified settings.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/215551ee-1980-4990-a820-f51be65ed20b" width="600"/>
 </p>
 
+- Useful Links
+  
+  **bdc:** [bdc_query_names_taxadb](https://brunobrr.github.io/bdc/reference/bdc_query_names_taxadb.html)
+
 ### Spatial Filter
+
+This section explains the parameters configured in the Spatial Filters tab of your Shiny app for spatial data filtering.
+
+1. **Number of Decimals to be Tested (`ndec`):**
+   - Specify the number of decimal places to be tested for precision in the coordinates.
+   - Example: `3`
+
+2. **Clustering Based on (`species`):**
+   - Choose the taxonomic level for clustering, such as species, genus, etc.
+   - Example: `Species`
+
+3. **Select Spatial Tests (`tests`):**
+   - Select the spatial tests to be applied during the cleaning process. Options include:
+     - `capitals`: Check for points near capital cities.
+     - `centroids`: Identify records near centroids.
+     - `duplicates`: Find duplicate records.
+     - `equal`: Test for equal coordinates.
+     - `gbif`: Flag records based on GBIF headquarters.
+     - `institutions`: Identify points near biodiversity institutions.
+     - `outliers`: Detect outliers in spatial data.
+     - `zeros`: Find records with zero coordinates.
+     - `urban`: Identify records in urban areas.
+
+4. **Radius for Capitals (`capitals_rad`):**
+   - Define the radius (in meters) around capital cities within which records will be flagged.
+   - Example: `3000` meters
+
+5. **Radius for Centroids (`centroids_rad`):**
+   - Set the radius (in meters) around centroids within which records will be flagged.
+   - Example: `10000` meters
+
+6. **Detail Level for Centroids (`centroids_detail`):**
+   - Choose the detail level for identifying centroid-based issues:
+     - `country`
+     - `provinces`
+     - `both`
+
+7. **Radius Around Biodiversity Institutions Coordinates (`inst_rad`):**
+   - Define the radius (in meters) around biodiversity institutions within which records will be flagged.
+   - Example: `100` meters
+
+8. **Multiplicative Factor for Outliers (`outliers_mtp`):**
+   - Set the multiplicative factor to adjust the sensitivity of the outlier detection.
+   - Example: `5`
+
+9. **Minimum Distance for Outliers (`outliers_td`):**
+   - Specify the minimum distance (in kilometers) between a record and all other records of the same species to be considered an outlier.
+   - Example: `1000` kilometers
+
+10. **Minimum Number of Records for Outlier Test (`outliers_size`):**
+    - Define the minimum number of records required in the dataset for the taxon-specific outlier test to be applied.
+    - Example: `10`
+
+11. **Range Radius (`range_rad`):**
+    - Set the range radius (in decimal degrees) to consider when identifying records that fall outside the expected range.
+    - Example: `0`
+
+12. **Radius for Zeros (`zeros_rad`):**
+    - Define the radius (in decimal degrees) around zero coordinates to flag records as potential errors.
+    - Example: `0.5` decimal degrees
+
+13. **Select Taxonomic Level for Visualization:**
+    - Choose the taxonomic level that will be used for visualization in the graph on the right.
+    - Example: `Family`
+
+14. **Save Path for Space:**
+    - Specify the path where the spatially filtered data will be saved.
+    - Default: `3_space_cleaned`
+
+15. **Select Output Formats:**
+    - Choose the output formats for the spatially filtered data file. Options include:
+      - `shp`
+      - `geojson`
+      - `gpkg`
+      - `kml`
+      - `csv`
+
+16. **Run Spatial Filters:**
+    - Click this button to start the spatial filtering process with the specified settings.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/1c68ee1b-22f1-4574-8842-b5fec5a0db93" width="600"/>
 </p>
 
+- Useful Links
+  
+  **bdc:** [bdc_coordinates_precision](https://brunobrr.github.io/bdc/reference/bdc_coordinates_precision.html)
+  
+  **CoordinateCleaner:** [clean_coordinates](https://www.rdocumentation.org/packages/CoordinateCleaner/versions/3.0.1/topics/clean_coordinates)
+
 ### Temporal Filter
+
+This section explains the parameters configured in the Temporal Filters tab of your Shiny app for filtering data based on temporal criteria.
+
+1. **Year Threshold (`year_threshold`):**
+   - Set the year threshold to filter out records that fall outside the specified range. Any records with a year earlier than this threshold will be flagged or removed.
+   - Example: `1950`
+
+2. **Select Taxonomic Level for Visualization:**
+   - Choose the taxonomic level that will be used for visualization in the graph on the right.
+   - Example: `Family`
+
+3. **Save Path for Time:**
+   - Specify the path where the temporally filtered data will be saved.
+   - Default: `4_time_cleaned`
+
+4. **Select Output Formats:**
+   - Choose the output formats for the temporally filtered data file. Options include:
+     - `shp`
+     - `geojson`
+     - `gpkg`
+     - `kml`
+     - `csv`
+
+5. **Run Temporal Filters:**
+   - Click this button to start the temporal filtering process with the specified settings.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/9f599568-01bf-44b7-9bd9-9bc5b408754c" width="600"/>
 </p>
+
+- Useful Links
+  
+  **bdc:** [bdc_year_outOfRange](https://brunobrr.github.io/bdc/reference/bdc_year_outOfRange.html)
 
 ### Interactive Map
 
@@ -206,6 +426,10 @@ The image above illustrates the creation of a new database, displaying the curre
   <img src="https://github.com/user-attachments/assets/cee67c0a-cd46-49f4-8a48-1ee0eae1e1aa" width="600"/>
 </p>
 
+- Useful Links
+  
+  **NCBI:** [makeblastdb application options](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.makeblastdb_application_opt/)
+
 ### Taxonomic Assignment
 
 The **Taxonomic Assignment** tab provides a user interface for configuring and running a BLAST (Basic Local Alignment Search Tool) analysis for taxonomic assignment of sequences. Below is a detailed explanation of each input parameter and its function:
@@ -232,6 +456,10 @@ This section of the interface provides a comprehensive set of options to customi
 <p align="center">
   <img src="https://github.com/user-attachments/assets/8a75b9e9-10ee-4560-84ad-dd55287eb450" width="600"/>
 </p>
+
+- Useful Links
+  
+  **NCBI:** [blastn application options](https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/)
 
 ## Overview
 
