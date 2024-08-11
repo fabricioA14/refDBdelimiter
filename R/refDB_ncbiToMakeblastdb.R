@@ -30,26 +30,35 @@ refDB_ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_o
         sed 's/ /_/g'
     }
 
-    # Function to append unique numbered sequences based on the entire header string
-    append_unique_numbered_sequences() {
-        awk '
-            /^>/ {
-                header = substr($0, 2)  # Remove the initial >
-                if (!(header in seen)) {
-                    seen[header] = 1
-                } else {
-                    seen[header]++
-                }
-                print \">\" seen[header] \"_\" header
-                getline
-                print
-            }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
-    }
-
-    # Append unique numbered sequences
-    append_unique_numbered_sequences
+    # Copy and clean the original database, replacing spaces with underscores
+    replace_spaces_with_underscores < ", cleaned_ncbi_database ," > temp_file && mv temp_file ", ncbi_database_based_on_gbif ,"
   "))
   
   # Add the sed command to remove trailing underscores
   system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
+  
+  # Path to the file where you want to save the excluded parts
+  excluded_parts_file <- "SelectedSequences.txt"
+  
+  # Extract and save the excluded parts
+  #system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - > ", excluded_parts_file))
+  #system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+  
+  system(paste0("wsl sed -n 's/^>\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - > ", excluded_parts_file))
+  system(paste0("wsl sed -n 's/^>\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+
+  # Remove the first underscore and everything before the second underscore
+  #system(paste0("wsl sed -i 's/_[^_]*_/_/' ", ncbi_database_based_on_gbif))
+  system(paste0("wsl sed -i 's/^>[^_]*_/>/' ", ncbi_database_based_on_gbif))
+  
+  # Insert sequential numbers at the beginning of each header
+  system(paste0("
+    wsl awk '
+    BEGIN { seq_num=1 }
+    /^>/ {
+      print \">\" seq_num++ \"_\" substr($0, 2)
+    }
+    !/^>/ {
+      print
+    }' ", ncbi_database_based_on_gbif, " > temp_file && mv temp_file ", ncbi_database_based_on_gbif))
 }

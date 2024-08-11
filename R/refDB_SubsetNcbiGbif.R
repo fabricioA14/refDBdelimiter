@@ -49,7 +49,7 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
           sed 's/ /_/g'
       }
 
-      # Function to search and append sequences with exact matching based on the first part before the underscore
+      # Function to search and append sequences with exact matching based on the part after the first underscore
       search_and_append() {
           local chunk=\"$1\"
           awk -v pattern=\"$chunk\" '
@@ -63,9 +63,9 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
                   header = substr($0, 2)  # Remove the initial >
                   split(header, parts, \"_\")
                   for (p in pat) {
-                      if (parts[1] == pat[p]) {
-                          counts[parts[1]]++
-                          print \">\" counts[parts[1]] \"_\" header
+                      if (parts[2] == pat[p]) {  # Consider only the part after the first underscore
+                          counts[parts[2]]++
+                          print \">\" counts[parts[2]] \"_\" header
                           getline
                           print
                           break
@@ -105,7 +105,15 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
       # Function to search and append sequences
       search_and_append() {
           local chunk=\"$1\"
-          sed -n -E '/^>('\"$chunk\"')$/ {:a;N;/^>/!ba;s/^>[[:space:]]*/>/p}' ", cleaned_ncbi_database ," | awk '/^>/ {sub(/>/, \">\" ++c \"_\")} 1' >> ", ncbi_database_based_on_gbif ,"
+          sed -n -E '/^>('\"$chunk\"')$/ {:a;N;/^>/!ba;s/^>[[:space:]]*/>/p}' ", cleaned_ncbi_database ," | awk '
+              BEGIN { FS=\"_\" }
+              /^>/ { 
+                  name = $2  # Consider only the part after the first underscore
+                  if (name == chunk) {
+                      sub(/>/, \">\" ++c \"_\")
+                      print
+                  }
+              }' >> ", ncbi_database_based_on_gbif ,"
       }
 
       # Replace spaces with underscores in names
@@ -124,6 +132,15 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
     "))
   }
   
-  # Add the sed command to remove trailing underscores
-  system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
+  # Remove trailing underscores and adjust the headers
+  system(paste0("wsl sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
+  
+  # Path to the file where you want to save the excluded parts
+  excluded_parts_file <- "SelectedSequences.txt"
+  
+  # Extract and save the excluded parts
+  system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+  
+  # Remove the first underscore and everything before the second underscore
+  system(paste0("wsl sed -i 's/_[^_]*_/_/' ", ncbi_database_based_on_gbif))
 }

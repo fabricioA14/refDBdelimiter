@@ -57,12 +57,10 @@ refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequenc
   
   # Select specific taxonomy labels
   system(paste0("wsl awk '/^>/ {
-      if ($3 == \"aff\" || $3 == \"aff.\" || $3 == \"cf\" || $3 == \"cf.\" || $3 == \"cv\" || $3 == \"cv.\" || $3 == \"f\" || $3 == \"f.\" || $3 == \"ined\" || $3 == \"ined.\" || $3 == \"p\" || $3 == \"p.\" || $3 == \"sect\" || $3 == \"sect.\" || $3 == \"lat\" || $3 == \"lat.\" || $3 == \"str\" || $3 == \"str.\" || $3 == \"nov\" || $3 == \"nov.\" || $3 == \"syn\" || $3 == \"syn.\" || $3 == \"var\" || $3 == \"var.\") {
-          sub(/^>[^ ]* /, \">\")
-          print $1 \" \" $2 \" \" $3 \" \"
+      if ($4 == \"aff\" || $4 == \"aff.\" || $4 == \"cf\" || $4 == \"cf.\" || $4 == \"cv\" || $4 == \"cv.\" || $4 == \"f\" || $4 == \"f.\" || $4 == \"ined\" || $4 == \"ined.\" || $4 == \"p\" || $4 == \"p.\" || $4 == \"sect\" || $4 == \"sect.\" || $4 == \"lat\" || $4 == \"lat.\" || $4 == \"str\" || $4 == \"str.\" || $4 == \"nov\" || $4 == \"nov.\" || $4 == \"syn\" || $4 == \"syn.\" || $4 == \"var\" || $4 == \"var.\") {
+          print $1 \" \" $2 \" \" $3 \" \" $4 \" \"
       }  else {
-          sub(/^>[^ ]* /, \">\")
-          print $1 \" \" $2 \" \"
+          print $1 \" \" $2 \" \" $3 \" \"
       }
   } 
   !/^>/ {print}' ", database_cleaned ," > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned))

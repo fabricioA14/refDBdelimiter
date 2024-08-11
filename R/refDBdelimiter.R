@@ -446,7 +446,8 @@ ui <- fluidPage(
                             actionButton("load_taxonomic_data", "Load Data"),
                             div(class = "output-tab",
                                 dataTableOutput("taxonomic_table")
-                            )
+                            ),
+                            actionButton("save_tax_data", "Save Taxonomic Data", class = "btn-primary")
                    ),
                    tabPanel("Samples",
                             div(class = "output-tab",
@@ -468,7 +469,7 @@ ui <- fluidPage(
                    tabPanel("Default Values",
                             div(class = "output-tab",
                                 dataTableOutput("editable_table"),
-                                actionButton("save_table", "Save Table")
+                                actionButton("save_default_values", "Save Table", class = "btn-primary")
                             )
                    )
                  )
@@ -1554,6 +1555,7 @@ function(el, x) {
   # Save the Otu Table
   observeEvent(input$save_otu_table, {
     saved_otu_data <- otu_values()
+    write.csv(saved_otu_data, file = "otu_table.csv",sep = "\t", row.names = FALSE)
     # Perform save operation (e.g., write to a file or database)
     showNotification("Otu Table saved successfully.")
   })
@@ -1561,7 +1563,7 @@ function(el, x) {
   # Placeholder for the Taxonomic Information data
   taxonomic_values <- reactiveVal(data.frame())
   
-  output$taxonomic_table <- renderDataTable({
+  output$taxonomic_table <- renderDT({
     datatable(taxonomic_values(), 
               selection = list(mode = "multiple", target = "cell"),
               editable = list(target = 'cell', disable = list(columns = c(0))),
@@ -1605,8 +1607,6 @@ function(el, x) {
     
     tax <- merge(tax, raw_otus[, c("id", "sequence")], by = "id", all.x = TRUE)
     
-    #tax <- merged_df[, c("id", "sequence", setdiff(names(merged_df), c("id", "sequence")))]
-    
     tax <- tax %>%
       mutate(ScientificName = case_when(
         !is.na(species) ~ species,
@@ -1622,6 +1622,13 @@ function(el, x) {
     tax <- tax[, c(names(tax)[1], "ScientificName", names(tax)[2:(ncol(tax)-1)])]
     
     taxonomic_values(tax)
+  })
+  
+  # Save Taxonomic Data
+  observeEvent(input$save_tax_data, {
+    final_data <- taxonomic_values()
+    write.csv(final_data, file = "tax.csv",sep = "\t", row.names = FALSE)
+    showNotification("Taxonomic Data saved successfully as tax.csv.")
   })
   
   # Placeholder for the Samples Table with initial mandatory columns
@@ -1665,7 +1672,7 @@ function(el, x) {
               editable = list(
                 target = 'cell', 
                 disable = list(
-                  columns = c(0)   # Disable editing for the first column
+                  columns = c(0)
                 )
               ),
               options = list(
@@ -1681,44 +1688,48 @@ function(el, x) {
                 info = TRUE,               # Show table information
                 paging = TRUE,             # Enable pagination
                 columnDefs = list(
-                  list(targets = 0, className = "dt-left unselectable"), # Apply CSS class to the first column
-                  list(width = '40px', targets = 0), # Set a specific width for the first column (ID)
+                  #list(className = "dt-bold", targets = 0),
+                  list(width = '8px', targets = 0), # Set a specific width for the first column (ID)
                   list(width = '40px', targets = 1), # Set a specific width for the row number column
                   list(width = '200px', targets = "_all") # Define a minimum width for all other columns
                 )
               ),
-              callback = JS(
-                "table.on('draw', function(){",
-                "$('td').css('padding', '4px');",
-                "$('th').css('padding', '4px');",
-                "});"
-              )
     )
   }, server = FALSE)
   
-  # Capture the edited Samples Table
-  observeEvent(input$samples_table_cell_edit, {
-    info <- input$samples_table_cell_edit
-    str(info)  # For debugging purposes
-    if (!is.null(info)) {
-      new_samples_data <- samples_data()
-      if (info$row <= nrow(new_samples_data) && info$col <= ncol(new_samples_data)) {
-        new_samples_data[info$row, info$col] <- info$value  # Adjusting for 0-based index
-        samples_data(new_samples_data)
-        cat("Updated cell at row:", info$row, "column:", info$col, "with value:", info$value, "\n")
-      } else {
-        cat("Index out of bounds: row:", info$row, "column:", info$col, "\n")
-      }
-    }
-  })
+# Reactive value to store temporary edits
+temp_samples_data <- reactiveVal(NULL)
+
+# Capture the edited Samples Table
+observeEvent(input$samples_table_cell_edit, {
+  info <- input$samples_table_cell_edit
   
-  # Save the Samples Table
-  observeEvent(input$save_samples, {
-    filtered_samples_data <- samples_data()
-    samples_data(filtered_samples_data)  # Update the samples_data with filtered data
-    # Perform save operation (e.g., write to a file or database)
-    showNotification("Samples Data saved successfully.")
-  })
+  # Get the current state of the samples data
+  new_samples_data <- temp_samples_data() %||% samples_data()
+  
+  # Apply the edit to the temporary data
+  if (!is.null(info) && info$row <= nrow(new_samples_data) && info$col <= ncol(new_samples_data)) {
+    new_samples_data[info$row, info$col] <- info$value
+    temp_samples_data(new_samples_data)
+  }
+})
+
+# Save the Samples Table when Save Data is clicked
+observeEvent(input$save_samples, {
+  final_data <- temp_samples_data() %||% samples_data()
+  
+  # Update the main samples_data with the final edits
+  samples_data(final_data)
+  
+  # Optionally, clear temp_samples_data to avoid confusion
+  temp_samples_data(NULL)
+  
+  # Save the final data as a CSV file
+  write.csv(final_data, file = "samples.csv",sep = "\t", row.names = FALSE)
+  
+  # Perform save operation (e.g., write to a file or database)
+  showNotification("Samples Data saved successfully.")
+})
   
   # Define the initial data for the Default Values table
   initial_data <- data.frame(
@@ -1779,8 +1790,10 @@ function(el, x) {
   })
   
   # Save the Default Values table
-  observeEvent(input$save_table, {
+  observeEvent(input$save_default_values, {
     saved_data <- values()
+    # Salve os dados em um arquivo CSV chamado "DefaultValues.csv"
+    write.csv(saved_data, file = "DefaultValues.csv",sep = "\t", row.names = FALSE)
     # Perform save operation (e.g., write to a file or database)
     showNotification("Table saved successfully.")
   })

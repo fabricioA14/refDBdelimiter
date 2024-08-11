@@ -23,7 +23,7 @@ Depends:
     R (>= 4.0.0),
     sf (>= 1.0.16)
 Imports:
-    Biostrings
+    Biostrings,
     dplyr,
     DT,
     ggplot2,
