@@ -121,7 +121,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       tabsetPanel(id = "tabs",
-                  tabPanel("Pre-Treatment Process",
+                  tabPanel("Preprocess",
                            textInput("input_file", "Input File Path:", value = ""),
                            selectInput("nrows_select", "Number of rows to read:", 
                                        choices = c("All" = "All", "Specific number" = "Specific"), 
@@ -148,7 +148,7 @@ ui <- fluidPage(
                                                       "Genus" = "genus",
                                                       "Species" = "species"),
                                        selected = "family"),
-                           textInput("save_path_pre", "Save Path for Pre-Treatment:", "1_PreProcess_cleaned"),
+                           textInput("save_path_pre", "Save Path for Preprocess:", "1_PreProcess_cleaned"),
                            sliderInput("dist", HTML('Distance for Inconsistent Coordinates <a id="dist_link" href="#">(dist)</a>:'), 
                                        min = 0.01, max = 1.0, value = 0.1, step = 0.01),
                            tags$div("Decimal Degrees", style = "margin-top: -10px; font-size: 11px; color: #999999;"),
@@ -161,9 +161,9 @@ ui <- fluidPage(
                                                              "kml" = "kml",
                                                              "csv" = "csv"),
                                               selected = c("")),
-                           actionButton("run", "Run Pre-Treatment", class = "btn-primary")
+                           actionButton("run", "Run Preprocess", class = "btn-primary")
                   ),
-                  tabPanel("Taxonomy Process",
+                  tabPanel("Taxonomic Filters",
                            checkboxInput("replace_synonyms", HTML('Replace synonyms by accepted names <a id="replace_synonyms_link" href="#">(replace_synonyms)</a>'), TRUE),
                            checkboxInput("suggest_names", HTML('Suggest names for misspelled names <a id="suggest_names_link" href="#">(suggest_names)</a>'), TRUE),
                            sliderInput("suggestion_distance", HTML('Distance between the searched and suggested names <a id="suggestion_distance_link" href="#">(suggestion_distance)</a>:'), min = 0, max = 1, value = 0.9, step = 0.01),
@@ -196,9 +196,9 @@ ui <- fluidPage(
                                                              "kml" = "kml",
                                                              "csv" = "csv"),
                                               selected = c("")),
-                           actionButton("run_tax", "Run Taxonomy Process", class = "btn-primary")
+                           actionButton("run_tax", "Run Taxonomic Filters", class = "btn-primary")
                   ),
-                  tabPanel("Space Process",
+                  tabPanel("Spatial Filters",
                            numericInput("ndec", HTML('Number of decimals to be tested <a id="ndec_link" href="#">(ndec)</a>:'), value = 3, min = 1),
                            selectInput("clustering_level", HTML('Clustering Based on <a id="clustering_level_link" href="#">(species)</a>:'), 
                                        choices = list("Phylum" = "phylum",
@@ -258,9 +258,9 @@ ui <- fluidPage(
                                                              "kml" = "kml",
                                                              "csv" = "csv"),
                                               selected = c("")),
-                           actionButton("run_space", "Run Space Process", class = "btn-primary")
+                           actionButton("run_space", "Run Spatial Filters", class = "btn-primary")
                   ),
-                  tabPanel("Time Process",
+                  tabPanel("Temporal Filters",
                            numericInput("year_threshold", HTML('Year threshold <a id="year_threshold_link" href="#">(year_threshold)</a>:'), value = 1950, min = 0),
                            selectInput("taxonomic_level_time", "Select Taxonomic Level for Visualization:", 
                                        choices = list("Phylum" = "phylum",
@@ -278,13 +278,13 @@ ui <- fluidPage(
                                                              "kml" = "kml",
                                                              "csv" = "csv"),
                                               selected = c("")),
-                           actionButton("run_time", "Run Time Process", class = "btn-primary")
+                           actionButton("run_time", "Run Temporal Filters", class = "btn-primary")
                   ),
-                  tabPanel("Edit Map",
+                  tabPanel("Interactive Map",
                            checkboxInput("database_condition", "Are you building a Metabarcoding Database?", TRUE), # Adicionado aqui
                            textInput("shp_path", "Enter Shapefile Path", value = ""),
                            actionButton("load_shp", "Load Shapefile", class = "btn-primary"),
-                           actionButton("run_edit_map", "Generate Edit Map", class = "btn-primary"),
+                           actionButton("run_edit_map", "Generate Map", class = "btn-primary"),
                            leafletOutput("edit_map"),
                            verbatimTextOutput("searchedValuesOutput_edit")
                   ),
@@ -395,31 +395,32 @@ ui <- fluidPage(
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Pre-Treatment Output",
+        id = "main_tabs",
+        tabPanel("Preprocess",
                  div(class = "output-tab",
                      plotlyOutput("pre_input_plot"),
                      plotlyOutput("pre_output_plot")
                  )
         ),
-        tabPanel("Taxonomy Output",
+        tabPanel("Taxonomic",
                  div(class = "output-tab",
                      plotlyOutput("tax_input_plot"),
                      plotlyOutput("tax_output_plot")
                  )
         ),
-        tabPanel("Space Output",
+        tabPanel("Spatial",
                  div(class = "output-tab",
                      plotlyOutput("space_input_plot"),
                      plotlyOutput("space_output_plot")
                  )
         ),
-        tabPanel("Time Output",
+        tabPanel("Temporal",
                  div(class = "output-tab",
                      plotlyOutput("time_input_plot"),
                      plotlyOutput("time_output_plot")
                  )
         ),
-        tabPanel("Edit Map Output",
+        tabPanel("Map",
                  div(class = "output-tab",
                      leafletOutput("edit_map")
                  )
@@ -459,7 +460,7 @@ ui <- fluidPage(
                                                         "depthAccuracy", "day", "month", "year", "basisOfRecord", "institutionCode", "collectionCode",
                                                         "catalogNumber", "recordNumber", "identifiedBy", "dateIdentified", "license", "rightsHolder",
                                                         "recordedBy", "typeStatus", "establishmentMeans", "lastInterpreted", "mediaType", "issue")
-,
+                                            ,
                                             multiple = TRUE),
                                 actionButton("add_columns", "Add Selected Columns"),
                                 dataTableOutput("samples_table"),
@@ -649,6 +650,10 @@ server <- function(input, output, session) {
     output$pre_output_plot <- renderPlotly({
       refDB_CreateStackedBar(pre_filtered, input$taxonomic_level_pre, "Pre-Treated Dataset by Year and Taxonomic Level", input$taxonomic_level_pre)
     })
+    
+    # Automatically switch to the "Preprocess" tab in the main panel
+    updateTabsetPanel(session, "main_tabs", selected = "Preprocess")
+    
   })
   
   suppressWarnings({
@@ -717,6 +722,10 @@ server <- function(input, output, session) {
     output$tax_output_plot <- renderPlotly({
       refDB_CreateStackedBar(taxonomy_cleaned_data, input$taxonomic_level_tax, "Taxonomy-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_tax)
     })
+    
+    # Automatically switch to the "Taxonomic" tab in the main panel
+    updateTabsetPanel(session, "main_tabs", selected = "Taxonomic")
+    
   })
   
   suppressWarnings({
@@ -788,6 +797,10 @@ server <- function(input, output, session) {
     output$space_output_plot <- renderPlotly({
       refDB_CreateStackedBar(space_cleaned_data, input$taxonomic_level_space, "Spatially-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_space)
     })
+    
+    # Automatically switch to the "Spatial" tab in the main panel
+    updateTabsetPanel(session, "main_tabs", selected = "Spatial")
+    
   })
   
   suppressWarnings({
@@ -843,6 +856,10 @@ server <- function(input, output, session) {
     output$time_output_plot <- renderPlotly({
       refDB_CreateStackedBar(time_cleaned_data, input$taxonomic_level_time, "Time-Cleaned Dataset by Year and Taxonomic Level", input$taxonomic_level_time)
     })
+    
+    # Automatically switch to the "Temporal" tab in the main panel
+    updateTabsetPanel(session, "main_tabs", selected = "Temporal")
+    
   })
   
   # Load Shapefile Process
@@ -897,7 +914,7 @@ server <- function(input, output, session) {
     
     # Ensure scientificName_updated column exists
     if ("scientificName_updated" %in% colnames(visualization)) {
-      visualization <- visualization %>% rename(taxa = scientificName_updated)
+      visualization <- visualization %>% dplyr::rename(taxa = scientificName_updated)
     }
     
     # Convert data to sf
@@ -1697,39 +1714,39 @@ function(el, x) {
     )
   }, server = FALSE)
   
-# Reactive value to store temporary edits
-temp_samples_data <- reactiveVal(NULL)
-
-# Capture the edited Samples Table
-observeEvent(input$samples_table_cell_edit, {
-  info <- input$samples_table_cell_edit
+  # Reactive value to store temporary edits
+  temp_samples_data <- reactiveVal(NULL)
   
-  # Get the current state of the samples data
-  new_samples_data <- temp_samples_data() %||% samples_data()
+  # Capture the edited Samples Table
+  observeEvent(input$samples_table_cell_edit, {
+    info <- input$samples_table_cell_edit
+    
+    # Get the current state of the samples data
+    new_samples_data <- temp_samples_data() %||% samples_data()
+    
+    # Apply the edit to the temporary data
+    if (!is.null(info) && info$row <= nrow(new_samples_data) && info$col <= ncol(new_samples_data)) {
+      new_samples_data[info$row, info$col] <- info$value
+      temp_samples_data(new_samples_data)
+    }
+  })
   
-  # Apply the edit to the temporary data
-  if (!is.null(info) && info$row <= nrow(new_samples_data) && info$col <= ncol(new_samples_data)) {
-    new_samples_data[info$row, info$col] <- info$value
-    temp_samples_data(new_samples_data)
-  }
-})
-
-# Save the Samples Table when Save Data is clicked
-observeEvent(input$save_samples, {
-  final_data <- temp_samples_data() %||% samples_data()
-  
-  # Update the main samples_data with the final edits
-  samples_data(final_data)
-  
-  # Optionally, clear temp_samples_data to avoid confusion
-  temp_samples_data(NULL)
-  
-  # Save the final data as a CSV file
-  write.csv(final_data, file = "samples.csv",sep = "\t", row.names = FALSE)
-  
-  # Perform save operation (e.g., write to a file or database)
-  showNotification("Samples Data saved successfully.")
-})
+  # Save the Samples Table when Save Data is clicked
+  observeEvent(input$save_samples, {
+    final_data <- temp_samples_data() %||% samples_data()
+    
+    # Update the main samples_data with the final edits
+    samples_data(final_data)
+    
+    # Optionally, clear temp_samples_data to avoid confusion
+    temp_samples_data(NULL)
+    
+    # Save the final data as a CSV file
+    write.csv(final_data, file = "samples.csv",sep = "\t", row.names = FALSE)
+    
+    # Perform save operation (e.g., write to a file or database)
+    showNotification("Samples Data saved successfully.")
+  })
   
   # Define the initial data for the Default Values table
   initial_data <- data.frame(
