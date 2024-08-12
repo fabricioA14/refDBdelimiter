@@ -10,13 +10,13 @@
 #' refDBdelimiter()
 #' )}
 #' }
-#' @importFrom dplyr if_else select_if anti_join
+#' @importFrom dplyr if_else select_if anti_join bind_cols
 #' @importFrom shiny shinyApp fluidPage sidebarLayout sidebarPanel mainPanel tabsetPanel tabPanel textInput selectInput numericInput actionButton
 #' @importFrom leaflet leaflet colorFactor leafletOutput renderLeaflet
 #' @importFrom leaflet.extras addDrawToolbar editToolbarOptions selectedPathOptions
 #' @importFrom shinyjs useShinyjs
 #' @importFrom plotly plotlyOutput renderPlotly
-#' @importFrom sf st_polygon st_crs
+#' @importFrom sf st_polygon st_crs sf_use_s2
 #' @importFrom tools toTitleCase
 #' @importFrom bdc bdc_coordinates_precision bdc_query_names_taxadb bdc_scientificName_empty bdc_coordinates_empty bdc_coordinates_outOfRange bdc_clean_names bdc_basisOfRecords_notStandard bdc_country_from_coordinates bdc_coordinates_country_inconsistent bdc_coordinates_from_locality bdc_summary_col bdc_filter_out_flags bdc_year_outOfRange
 #' @importFrom countrycode countrycode
@@ -586,6 +586,8 @@ server <- function(input, output, session) {
     
     data <- fread(input$input_file, select = fields, nrows = nrows)
     
+    sf_use_s2(FALSE)
+    
     dataPreProcess <- bdc_scientificName_empty(data, "scientificName") %>%
       bdc_coordinates_empty(lat = "decimalLatitude", lon = "decimalLongitude") %>%
       bdc_coordinates_outOfRange(lat = "decimalLatitude", lon = "decimalLongitude") %>%
@@ -700,7 +702,19 @@ server <- function(input, output, session) {
     check_taxonomy <- check_taxonomy %>%
       mutate(scientificName_updated = if_else(is.na(scientificName_updated), names_clean, scientificName_updated))
     
-    taxonomy_cleaned_data <- check_taxonomy %>% select_if(~ !all(is.na(.)))
+    #taxonomy_cleaned_data <- check_taxonomy %>% select_if(~ !all(is.na(.)))
+    
+    columns_to_keep <- c("kingdom", "phylum", "class", "order", "family", "genus", "species")
+    
+    check_taxonomy <- check_taxonomy %>%
+      select(all_of(columns_to_keep)) %>%
+      bind_cols(check_taxonomy %>%
+                  select(-all_of(columns_to_keep)) %>%
+                  select_if(~ !all(is.na(.))))
+    
+    taxonomy_cleaned_data <- check_taxonomy[,c(8:11,1:7,12:ncol(check_taxonomy))]
+    
+    rm(check_taxonomy)
     
     taxonomy_cleaned(taxonomy_cleaned_data)  # Update reactive variable
     
@@ -835,6 +849,19 @@ server <- function(input, output, session) {
     
     time_cleaned_data <- time_cleaned_data %>%
       select(-scientificName, -countryCode, -stateProvince, -locality, -basisOfRecord, -names_clean)
+    
+    time_cleaned_data <- time_cleaned_data %>%
+      mutate(scientificName_updated = case_when(
+        !is.na(scientificName_updated) ~ scientificName_updated, 
+        !is.na(species) & species != "" ~ species,               
+        !is.na(genus) & genus != "" ~ genus,                     
+        !is.na(family) & family != "" ~ family,                  
+        !is.na(order) & order != "" ~ order,                     
+        !is.na(class) & class != "" ~ class,                     
+        !is.na(phylum) & phylum != "" ~ phylum,                  
+        !is.na(kingdom) & kingdom != "" ~ kingdom,               
+        TRUE ~ scientificName_updated                            
+      ))
     
     time_cleaned(time_cleaned_data)  # Update reactive variable
     
@@ -1300,6 +1327,9 @@ function(el, x) {
       }
     }
   })
+  
+  # Cleanup global variables
+  rm(list = c("searchedValuesGlobal", "drawnFeaturesGlobal"), envir = .GlobalEnv)
   
   # Make Database Process
   observeEvent(input$run_make_database, {
