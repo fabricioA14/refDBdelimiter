@@ -35,51 +35,61 @@ The `refDBdelimiter` package is designed to be used on Windows systems. To ensur
      ```
    - Restart your computer if prompted.
 
-   For more detailed instructions, refer to the [Microsoft](https://docs.microsoft.com/en-us/windows/wsl/install) documentation.
+For more detailed instructions, refer to the [Microsoft](https://docs.microsoft.com/en-us/windows/wsl/install) documentation.
 
-2. **Install the bdc package**:
-   - First, install the `bdc` package from CRAN:
-     ```r
-     install.packages("bdc")
+2. **Install `ncbi-blast+` on WSL**:
+
+   - First, run the `wsl` command, update and upgrade your system by running:
+     ```bash
+     wsl
+     sudo apt-get update
+     sudo apt-get upgrade
+     ```
+  
+   - Next, install the `ncbi-blast+` package:
+     ```bash
+     sudo apt install ncbi-blast+
      ```
 
-3. **DuckDB**: The `refDBdelimiter` package also depends on DuckDB for efficient data handling during the taxonomic cleaning stage. To address related issues:
-   - Ensure you have the latest version of DuckDB installed.
-   - If you encounter an error when trying to read a database file with an incompatible version, follow these steps. This error typically appears in functions like `bdc_query_names_taxadb`, which you might see mentioned in related issues:
-     - Delete the existing database directory:
-       ```r
-       fs::dir_delete(taxadb:::taxadb_dir())
-       ```
-     - Rerun your database query:
-       ```r
-       resolvedspplistitis <- bdc_query_names_taxadb(sci_name=specieslist, db = "itis", suggestion_distance = 0.9)
-       ```
-   These steps are described in the [GitHub](https://github.com/brunobrr/bdc/issues/233) issue.
-
-4. **GNparser**: The package requires `gnparser` for taxonomic name parsing. To resolve installation issues on Windows:
+3. **GNparser**: The package requires `gnparser` for taxonomic name parsing. To resolve installation issues on Windows:
    - Download the appropriate binary file from the [GNparser](https://github.com/gnames/gnparser/releases) releases page.
-   - Extract the binary file and move it to the `AppData` directory. This can be done using R:
-     ```r
-     unzip("path/to/gnparser.zip", exdir = "path/to/destination")
-     AppData_path <- Sys.getenv("AppData")
-     file.copy("path/to/destination/gnparser", file.path(AppData_path, "gnparser"), recursive = TRUE)
+   - Extract the binary file, then:
+     ```cmd
+     cd C:\
+     mkdir C:\bin
+     copy path_to\gnparser.exe C:\bin
      ```
-     
-   These steps are described in this [GitHub](https://github.com/brunobrr/bdc/issues/233) issue.
+     After running these commands, you need to add the `C:\bin` directory to your PATH user and/or system environment variables. This ensures that `gnparser` can be accessed from any command prompt or script. For instructions on how to add a directory to your PATH environment variable, refer to this tutorial: [How to set the path and environment variables in Windows](https://www.computerhope.com/issues/ch000549.htm).
 
-Once these dependencies are met, you can install the `refDBdelimiter` package using the following commands in R:
+     These steps are described in this [GitHub](https://github.com/brunobrr/bdc/issues/265) issue.
 
-To install the `refDBdelimiter` package, you can use the following commands in R:
+4. Install `Biostrings` package from Bioconductor:
 
-```r
-# Install devtools if not already installed
-if (!requireNamespace("devtools", quietly = TRUE)) {
-  install.packages("devtools")
-}
+     ```r
+     if (!requireNamespace("BiocManager", quietly = TRUE))
+     install.packages("BiocManager")
+     BiocManager::install("Biostrings")
+     ```
 
-# Install refDBdelimiter from GitHub
-devtools::install_github("fabricioA14/refDBdelimiter")
-```
+5. Install `rnaturalearthhires` package from GitHub:
+
+    ```r
+    remotes::install_github("ropensci/rnaturalearthhires")
+    library(rnaturalearthhires)
+    ```
+
+6. To install the `refDBdelimiter` package, you can use the following commands in R:
+
+    ```r
+    # Install devtools if not already installed
+    if (!requireNamespace("devtools", quietly = TRUE)) {
+      install.packages("devtools")
+    }
+
+    # Install refDBdelimiter from GitHub
+    devtools::install_github("fabricioA14/refDBdelimiter")
+    ```
+
 ## Usage
 
 ### Acquiring Data From Sources
