@@ -26,6 +26,7 @@ Imports:
     Biostrings,
     dplyr,
     DT,
+    doParallel,
     ggplot2,
     RColorBrewer,
     shiny,

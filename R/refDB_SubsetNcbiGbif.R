@@ -62,14 +62,11 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
               /^>/ {
                   header = substr($0, 2)  # Remove the initial >
                   split(header, parts, \"_\")
-                  for (p in pat) {
-                      if (parts[2] == pat[p]) {  # Consider only the part after the first underscore
-                          counts[parts[2]]++
-                          print \">\" counts[parts[2]] \"_\" header
-                          getline
-                          print
-                          break
-                      }
+                  if (parts[2] == pat[1] || parts[1] == pat[1]) {  # Match part after or before the first underscore
+                      counts[pat[1]]++
+                      print \">\" counts[pat[1]] \"_\" header
+                      getline
+                      print
                   }
               }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
       }
@@ -109,7 +106,7 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
               BEGIN { FS=\"_\" }
               /^>/ { 
                   name = $2  # Consider only the part after the first underscore
-                  if (name == chunk) {
+                  if (name == chunk || $1 == chunk) {  # Match part after or before the first underscore
                       sub(/>/, \">\" ++c \"_\")
                       print
                   }
