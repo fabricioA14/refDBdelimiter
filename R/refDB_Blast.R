@@ -323,6 +323,23 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   Blast$Species <- ifelse(Blast$pident >= Family_Threshold & Blast$pident < Genus_Threshold, "" ,Blast$Species)
   Blast$Genus <- ifelse(Blast$pident >= Family_Threshold & Blast$pident < Genus_Threshold, "" ,Blast$Genus)
   
+  list_columns <- sapply(Blast, is.list)
+  list_columns_names <- names(list_columns[list_columns])
+  
+  Blast[list_columns_names] <- lapply(Blast[list_columns_names], function(col) {
+    sapply(col, function(x) {
+      if (is.null(x)) {
+        return(NA)
+      } else if (is.list(x) || length(x) > 1) {
+        return(as.character(x[[1]]))  
+      } else {
+        return(as.character(x)) 
+      }
+    })
+  })
+  
+  Blast <- as.data.frame(Blast, stringsAsFactors = FALSE)
+  
   write.table(Blast, file = paste0(Directory, "taxonomic_assignment.txt"), sep = "\t", row.names = F, col.names = T)
   
   # Find the Zotus not identified with perc_identity = 97
