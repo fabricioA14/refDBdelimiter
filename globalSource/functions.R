@@ -43,7 +43,7 @@ make_unique_names <- function(names) {
 }
 
 # Function to extract the data and create a data frame
-refDB_ExtractData <- function(data) {
+extract_data <- function(data) {
   # Extract and modify the taxa vector
   taxa <- unlist(lapply(data, function(x) x$taxa))
   taxa <- sub(",.*", "", taxa)
@@ -76,13 +76,13 @@ remove_trailing_numbers <- function(name) {
 }
 
 
-# Function to save occurrence data in specified formats
-refDB_SaveOccurrenceData <- function(data, base_filename, formats = c("shp", "geojson", "gpkg", "kml", "csv")) {
-  # Define the output directory
+# Função para salvar dados de ocorrência nos formatos especificados
+save_occurrence_data <- function(data, base_filename, formats = c("shp", "geojson", "gpkg", "kml", "csv")) {
+  # Definir o diretório de saída
   current_directory <- getwd()
   output_directory <- file.path(current_directory, "SHP")
   
-  # Define output paths based on desired formats
+  # Definir caminhos de saída com base nos formatos desejados
   output_paths <- list(
     shp = file.path(output_directory, paste0(base_filename, ".shp")),
     geojson = paste0(base_filename, ".geojson"),
@@ -91,12 +91,12 @@ refDB_SaveOccurrenceData <- function(data, base_filename, formats = c("shp", "ge
     csv = paste0(base_filename, ".csv")
   )
   
-  # Save in specified formats
+  # Salvar nos formatos especificados
   if ("shp" %in% formats) {
     if (!dir.exists(output_directory)) {
       dir.create(output_directory)
     }
-    # Convert gbifID to character to avoid field width problems
+    # Converter gbifID para character para evitar problemas de largura de campo
     data$gbifID <- as.character(data$gbifID)
     st_write(data, output_paths$shp, delete_layer = TRUE)
   }
@@ -117,276 +117,10 @@ refDB_SaveOccurrenceData <- function(data, base_filename, formats = c("shp", "ge
   cat("Data saved in formats:", paste(formats, collapse = ", "), "\n")
 }
 
-# Function to delete intermediate files
-delete_intermediate_files <- function(files) {
-  sapply(files, function(file) {
-    if (file.exists(file)) {
-      file.remove(file)
-    }
-  })
-}
 
-# Function to create interactive stacked bar plot
-refDB_CreateStackedBar <- function(data, taxonomic_level, title, legend_title) {
-  # Capitalize the first letter of the legend title
-  legend_title <- str_to_title(legend_title)
-  
-  # Replace empty strings and NA in taxonomic_level with "Empty"
-  data[[taxonomic_level]][data[[taxonomic_level]] == ""] <- "Empty"
-  data[[taxonomic_level]][is.na(data[[taxonomic_level]])] <- "Empty"
-  
-  # Replace empty strings and NA in year with "Unknown"
-  data$year[data$year == ""] <- "Unknown"
-  data$year[is.na(data$year)] <- "Unknown"
-  
-  # Order the taxonomic levels, keeping "Empty" at the end
-  levels_ordered <- c("Empty", rev(sort(unique(data[[taxonomic_level]][data[[taxonomic_level]] != "Empty"]))))
-  data[[taxonomic_level]] <- factor(data[[taxonomic_level]], levels = levels_ordered)
-  
-  # Order the years, keeping "Unknown" at the start
-  years_ordered <- c("Unknown", sort(unique(data$year[data$year != "Unknown"])))
-  data$year <- factor(data$year, levels = years_ordered)
-  
-  # Define colors, assigning "grey60" to "Empty"
-  colors <- c(RColorBrewer::brewer.pal(n = length(levels_ordered) - 1, name = "Set3"))
-  
-  data %>%
-    group_by(year, !!sym(taxonomic_level)) %>%
-    summarise(count = n(), .groups = 'drop') %>%
-    plot_ly(x = ~year, y = ~count, type = 'bar', color = as.formula(paste0("~", taxonomic_level)), colors = colors) %>%
-    layout(
-      title = list(text = title, font = list(family = 'Comfortaa', size = 20)),
-      barmode = 'stack',
-      xaxis = list(title = 'Year', titlefont = list(family = 'Comfortaa', size = 18), tickfont = list(family = 'Comfortaa')),
-      yaxis = list(title = 'Count', titlefont = list(family = 'Comfortaa', size = 18), tickfont = list(family = 'Comfortaa')),
-      legend = list(
-        title = list(
-          text = paste0("   ", legend_title),
-          font = list(family = 'Comfortaa', size = 14)
-        ),
-        font = list(family = 'Comfortaa', size = 12),
-        orientation = "v"
-      ),
-      margin = list(t = 80)  # Add top margin for the title
-    )
-}
 
-refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequence_length, pattern = "UNVERIFIED") {
-  
-  # Filter sequences based on the given pattern
-  filter_command <- paste0(
-    "wsl awk",
-    " -v pattern='" , pattern, "'",
-    " -v output_file='" , database_cleaned, "'",
-    " '/^>/ { if ($0 !~ pattern) { if (header) { print header; print sequence } header = $0; sequence = \"\" } next } { sequence = sequence $0 } END { if (header) { print header; print sequence } }' ",
-    raw_database,
-    ">",
-    database_cleaned
-  )
-  system(filter_command)
-  
-  # Remove sequences below the minimum length
-  command <- paste0('wsl temp_database_cleaned=$(mktemp)', 
-                    ' && awk -v min_length=', min_sequence_length, 
-                    ' -v RS=">" -v ORS="" \'{',
-                    ' if (NR > 1) {',
-                    '     header = ">" substr($0, 1, index($0, "\\n"));',
-                    '     sequence = substr($0, index($0, "\\n")+1);',
-                    '     gsub(/\\n/, "", sequence);',
-                    '     if (length(sequence) >= min_length) {',
-                    '         print header;',
-                    '         print sequence;',
-                    '         print "\\n";',
-                    '     }',
-                    ' }',
-                    '}\' "', database_cleaned, '" > $temp_database_cleaned && ',
-                    'mv $temp_database_cleaned "', database_cleaned, '"')
-  system(command)
-  
-  # Remove special characters
-  system(paste0("wsl tr -d '[]\"' < ", database_cleaned, " > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned))
-  
-  # Select specific taxonomy labels
-  system(paste0("wsl awk '/^>/ {
-      if ($3 == \"aff\" || $3 == \"aff.\" || $3 == \"cf\" || $3 == \"cf.\" || $3 == \"cv\" || $3 == \"cv.\" || $3 == \"f\" || $3 == \"f.\" || $3 == \"ined\" || $3 == \"ined.\" || $3 == \"p\" || $3 == \"p.\" || $3 == \"sect\" || $3 == \"sect.\" || $3 == \"lat\" || $3 == \"lat.\" || $3 == \"str\" || $3 == \"str.\" || $3 == \"nov\" || $3 == \"nov.\" || $3 == \"syn\" || $3 == \"syn.\" || $3 == \"var\" || $3 == \"var.\") {
-          sub(/^>[^ ]* /, \">\")
-          print $1 \" \" $2 \" \" $3 \" \"
-      }  else {
-          sub(/^>[^ ]* /, \">\")
-          print $1 \" \" $2 \" \"
-      }
-  } 
-  !/^>/ {print}' ", database_cleaned ," > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned))
-  
-  system(paste0(
-    "wsl awk '",
-    "/^>/ { ",
-    "gsub(/ aff\\./, \"\"); gsub(/ cf\\./, \"\"); gsub(/ cv\\./, \"\"); gsub(/ f\\./, \"\"); gsub(/ ined\\./, \"\"); gsub(/ p\\./, \"\"); gsub(/ sect\\./, \"\"); gsub(/ lat\\./, \"\"); gsub(/ str\\./, \"\"); gsub(/ nov\\./, \"\"); gsub(/ syn\\./, \"\"); gsub(/ var\\./, \"\"); gsub(/ sp\\./, \"\"); ",
-    "gsub(/ aff /, \"\"); gsub(/ cf /, \"\"); gsub(/ cv /, \"\"); gsub(/ f /, \"\"); gsub(/ ined /, \"\"); gsub(/ p /, \"\"); gsub(/ sect /, \"\"); gsub(/ lat /, \"\"); gsub(/ str /, \"\"); gsub(/ nov /, \"\"); gsub(/ syn /, \"\"); gsub(/ var /, \"\"); gsub(/ sp /, \"\"); ",
-    "} { print }' ", database_cleaned, " > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned
-  ))
-  
-  system(paste0("sed -i '/^>/ s/[[:space:]]/_/g' ", database_cleaned))
-  
-  system(paste0("sed -i '/^>.*_$/s/_$//' ", database_cleaned))
-  
-}
 
-refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, condition) {
-
-    file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
-  fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
-  close(fileConn)
-  
-  if (condition) {
-    # If condition is TRUE:
-    system(paste0("
-      wsl names=$(<", gbif_database ,")
-
-      # Function to split names into chunks
-      split_names_into_chunks() {
-          local chunk_size=$1
-          local num_chunks=$(( (${#names} + $chunk_size - 1) / $chunk_size ))
-          local chunks=()
-          for (( i = 0; i < $num_chunks; i++ )); do
-              local start=$(( $i * $chunk_size ))
-              chunks+=( \"$(echo \"${names:$start:$chunk_size}\")\" )
-          done
-          echo \"${chunks[@]}\"
-      }
-
-      # Function to replace spaces with underscores except the last one
-      replace_spaces_with_underscores() {
-          sed 's/ /_/g'
-      }
-
-      # Function to search and append sequences with exact matching based on the first part before the underscore
-      search_and_append() {
-          local chunk=\"$1\"
-          awk -v pattern=\"$chunk\" '
-              BEGIN {
-                  split(pattern, pat, \"|\")
-                  for (p in pat) {
-                      counts[pat[p]] = 0
-                  }
-              }
-              /^>/ {
-                  header = substr($0, 2)  # Remove the initial >
-                  split(header, parts, \"_\")
-                  for (p in pat) {
-                      if (parts[1] == pat[p]) {
-                          counts[parts[1]]++
-                          print \">\" counts[parts[1]] \"_\" header
-                          getline
-                          print
-                          break
-                      }
-                  }
-              }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
-      }
-
-      # Split names into chunks of 1000 names each
-      chunk_size=1000
-      IFS='|' read -ra chunks <<< \"$(split_names_into_chunks $chunk_size)\"
-
-      # Search and append sequences for each chunk
-      for chunk in \"${chunks[@]}\"
-      do
-          search_and_append \"$chunk\"
-      done
-    "))
-    
-  } else {
-    # if FALSE:
-    system(paste0("
-      wsl names=$(<", gbif_database ,")
-
-      # Function to split names into chunks
-      split_names_into_chunks() {
-          local chunk_size=$1
-          local num_chunks=$(( (${#names} + $chunk_size - 1) / $chunk_size ))
-          local chunks=()
-          for (( i = 0; i < $num_chunks; i++ )); do
-              local start=$(( $i * $chunk_size ))
-              chunks+=( \"$(echo \"${names:$start:$chunk_size}\")\" )
-          done
-          echo \"${chunks[@]}\"
-      }
-
-      # Function to search and append sequences
-      search_and_append() {
-          local chunk=\"$1\"
-          sed -n -E '/^>('\"$chunk\"')$/ {:a;N;/^>/!ba;s/^>[[:space:]]*/>/p}' ", cleaned_ncbi_database ," | awk '/^>/ {sub(/>/, \">\" ++c \"_\")} 1' >> ", ncbi_database_based_on_gbif ,"
-      }
-
-      # Replace spaces with underscores in names
-      modified_names=$(echo \"$names\" | sed 's/[[:space:]]/_/g')
-
-      # Split modified names into chunks of 1000 names each
-      chunk_size=1000
-      IFS='|' read -ra chunks <<< \"$(split_names_into_chunks $chunk_size)\"
-
-      # Search and append sequences for each chunk
-      for chunk in \"${chunks[@]}\"
-      do
-          c=0 # Reset counter for each chunk
-          search_and_append \"$chunk\"
-      done
-    "))
-  }
-  
-  # Add the sed command to remove trailing underscores
-  system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
-}
-
-refDB_ncbiToMakeblastdb <- function(cleaned_ncbi_database, ncbi_database_based_on_gbif) {
-  
-  file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
-  fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
-  close(fileConn)
-  
-  system(paste0("
-    wsl 
-
-    # Function to replace spaces with underscores
-    replace_spaces_with_underscores() {
-        sed 's/ /_/g'
-    }
-
-    # Function to append unique numbered sequences based on the entire header string
-    append_unique_numbered_sequences() {
-        awk '
-            /^>/ {
-                header = substr($0, 2)  # Remove the initial >
-                if (!(header in seen)) {
-                    seen[header] = 1
-                } else {
-                    seen[header]++
-                }
-                print \">\" seen[header] \"_\" header
-                getline
-                print
-            }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
-    }
-
-    # Append unique numbered sequences
-    append_unique_numbered_sequences
-  "))
-  
-  # Add the sed command to remove trailing underscores
-  system(paste0("sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
-}
-
-refDB_CreateBlastDB <- function(database, parse_seqids = T, database_type = "nucl", title = "local_database", out = NULL, hash_index = FALSE, mask_data = NULL,  mask_id = NULL, mask_desc = NULL, gi_mask = FALSE,
-                            gi_mask_name = NULL, max_file_sz = NULL, logfile = NULL, taxid = NULL, taxid_map = NULL) {
-system(paste0("wsl makeblastdb -in " , database, " ", if (parse_seqids) paste0("-parse_seqids"), " -title ", title, " -dbtype ", database_type, " -out ", out, if (hash_index) "-hash_index ",
-                    if (!is.null(mask_data) && mask_data != "") paste0("-mask_data ", mask_data, " "), if (!is.null(mask_id) && mask_id != "") paste0("-mask_id ", mask_id, " "),
-                    if (!is.null(mask_desc) && mask_desc != "") paste0("-mask_desc ", mask_desc, " "), if (gi_mask) "-gi_mask ", if (!is.null(gi_mask_name) && gi_mask_name != "") paste0("-gi_mask_name ", gi_mask_name, " "),
-                    if (!is.null(max_file_sz) && max_file_sz != "") paste0("-max_file_sz ", max_file_sz, " "), if (!is.null(logfile) && logfile != "") paste0("-logfile ", logfile, " "),
-                    if (!is.null(taxid) && taxid != "") paste0("-taxid ", taxid, " "), if (!is.null(taxid_map) && taxid_map != "") paste0("-taxid_map ", taxid_map, " ")))
-}
-
-refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", query = "otus.fasta", task = "megablast", out = "blast.txt", 
+blast_gibi <- function(Directory, Database_File, query = "otus.fasta", task = "megablast", out = "blast.txt", 
                        max_target_seqs = 50, perc_identity = 95, qcov_hsp_perc = 95, num_threads = 6, 
                        Specie_Threshold = 99, Genus_Threshold = 97, Family_Threshold = 95, 
                        penalty = NULL, reward = NULL, evalue = NULL, word_size = NULL, gapopen = NULL, 
@@ -404,7 +138,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   
   linux_path <- gsub("C:/", "/mnt/c/", Directory)
   
-  # Optional Parameters
+  # Construir a string de parâmetros opcionais
   optional_params <- ""
   add_param <- function(param, value) {
     if (!is.null(value)) {
@@ -460,19 +194,19 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                             add_param("remote", remote)
   )
   
-  # blastn
-  system(paste0("wsl blastn -query ", paste0(linux_path, query), " -task ", task, " -db ", paste0(linux_path, Database_File), 
+  # Comando do BLAST com parâmetros opcionais e definidos pelo usuário
+  system(paste0("wsl blastn -query ", query, " -task ", task, " -db ", paste0(linux_path, Database_File), 
                 " -out ", out, " -max_target_seqs ", max_target_seqs, 
                 " -perc_identity ", perc_identity, 
                 " -qcov_hsp_perc ", qcov_hsp_perc, 
                 " -num_threads ", num_threads, 
                 optional_params))
   
-  system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
+  system(paste0("wsl tr -d '#' < otu_table.txt > temp_raw_database && mv temp_raw_database otu_table.txt"))
   
   csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)
   
-  Samples <- read.table(paste0(Directory, otu_table), sep = "\t", header = TRUE)
+  Samples <- read.table(paste0(Directory, "otu_table.txt"), sep = "\t", header = TRUE)
   
   colnames(Samples)[1] <- "qseqid"
   
@@ -644,5 +378,50 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
 }
 
 
-
+format_ncbi_database <- function(raw_database, database_cleaned, min_sequence_length, pattern = "UNVERIFIED") {
+  
+  # Filter sequences based on the given pattern
+  filter_command <- paste0(
+    "wsl awk",
+    " -v pattern='" , pattern, "'",
+    " -v output_file='" , database_cleaned, "'",
+    " '/^>/ { if ($0 !~ pattern) { if (header) { print header; print sequence } header = $0; sequence = \"\" } next } { sequence = sequence $0 } END { if (header) { print header; print sequence } }' ",
+    raw_database,
+    ">",
+    database_cleaned
+  )
+  system(filter_command)
+  
+  # Remove sequences below the minimum length
+  command <- paste0('wsl temp_database_cleaned=$(mktemp)', 
+                    ' && awk -v min_length=', min_sequence_length, 
+                    ' -v RS=">" -v ORS="" \'{',
+                    ' if (NR > 1) {',
+                    '     header = ">" substr($0, 1, index($0, "\\n"));',
+                    '     sequence = substr($0, index($0, "\\n")+1);',
+                    '     gsub(/\\n/, "", sequence);',
+                    '     if (length(sequence) >= min_length) {',
+                    '         print header;',
+                    '         print sequence;',
+                    '         print "\\n";',
+                    '     }',
+                    ' }',
+                    '}\' "', database_cleaned, '" > $temp_database_cleaned && ',
+                    'mv $temp_database_cleaned "', database_cleaned, '"')
+  system(command)
+  
+  # Remove special characters
+  system(paste0("wsl tr -d '[]\"' < ", database_cleaned, " > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned))
+  
+  # Remove specific taxonomy labels
+  patterns <- c("aff", "aff.", "cf", "cf.", "cv", "cv.", "f", "f.", "ined", "ined.",
+                "p", "p.", "sect", "sect.", "lat", "lat.", "str", "str.", "nov", "nov.",
+                "syn", "syn.", "var", "var.")
+  exclude_patterns <- paste(patterns, collapse = "|")
+  
+  system(paste0("wsl awk '/^>/ {",
+                "gsub(\" \\\\b(", exclude_patterns, ")\\\\b\", \"\");",
+                "print",
+                "} !/^>/ {print}' ", database_cleaned, " > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned))
+}
 
