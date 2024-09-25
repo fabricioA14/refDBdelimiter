@@ -27,7 +27,7 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
   close(fileConn)
   
-  if (genus_flexibility) {
+  if (genus_flexibility == TRUE) {
     # If genus_flexibility is TRUE:
     system(paste0("
       wsl names=$(<", gbif_database ,")
@@ -82,6 +82,21 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
       done
     "))
     
+      # Remove trailing underscores and adjust the headers
+  system(paste0("wsl sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
+  
+  # Path to the file where you want to save the excluded parts
+  excluded_parts_file <- "SelectedSequences.txt"
+  
+  # Extract and save the excluded parts
+  system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+  #system(paste0("wsl sed -n 's/^>\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+
+  
+  # Remove the first underscore and everything before the second underscore
+  system(paste0("wsl sed -i 's/_[^_]*_/_/' ", ncbi_database_based_on_gbif))
+  #system(paste0("wsl sed -i 's/^>[^_]*_\\([^_]*_[^_]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+    
   } else {
     # if FALSE:
     system(paste0("
@@ -99,19 +114,13 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
           echo \"${chunks[@]}\"
       }
 
-      # Function to search and append sequences
-      search_and_append() {
-          local chunk=\"$1\"
-          sed -n -E '/^>('\"$chunk\"')$/ {:a;N;/^>/!ba;s/^>[[:space:]]*/>/p}' ", cleaned_ncbi_database ," | awk '
-              BEGIN { FS=\"_\" }
-              /^>/ { 
-                  name = $2  # Consider only the part after the first underscore
-                  if (name == chunk || $1 == chunk) {  # Match part after or before the first underscore
-                      sub(/>/, \">\" ++c \"_\")
-                      print
-                  }
-              }' >> ", ncbi_database_based_on_gbif ,"
-      }
+  # Function to search and append sequences
+  search_and_append() {
+      local chunk=\"$1\"
+      awk '/^>/{f=0} 
+           /^>.*'\"$chunk\"'/{f=1} 
+           f' ", cleaned_ncbi_database ," >> ", ncbi_database_based_on_gbif ,"
+  }
 
       # Replace spaces with underscores in names
       modified_names=$(echo \"$names\" | sed 's/[[:space:]]/_/g')
@@ -127,17 +136,33 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
           search_and_append \"$chunk\"
       done
     "))
-  }
-  
-  # Remove trailing underscores and adjust the headers
+   
+            # Remove trailing underscores and adjust the headers
   system(paste0("wsl sed -i '/^>.*_$/s/_$//' ", ncbi_database_based_on_gbif))
   
   # Path to the file where you want to save the excluded parts
   excluded_parts_file <- "SelectedSequences.txt"
   
   # Extract and save the excluded parts
-  system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+  #system(paste0("wsl sed -n 's/^[^_]*_\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+  system(paste0("wsl sed -n 's/^>\\([^_]*\\)_.*/\\1/p' ", ncbi_database_based_on_gbif, " | paste -sd '|' - | sed 's/$/|/' > ", excluded_parts_file))
+
   
   # Remove the first underscore and everything before the second underscore
-  system(paste0("wsl sed -i 's/_[^_]*_/_/' ", ncbi_database_based_on_gbif))
+  #system(paste0("wsl sed -i 's/_[^_]*_/_/' ", ncbi_database_based_on_gbif))
+  system(paste0("wsl sed -i 's/^>[^_]*_\\([^_]*_[^_]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+
+  system(paste0("
+  wsl awk '
+    /^>/ {
+      name = substr($0, 2)                     
+      if (!seen[name]++) {sequence[name]=1}    
+      print \">\" sequence[name] \"_\" name    
+      sequence[name]++                         
+    } 
+    !/^>/ {print $0}                           
+  ' ", ncbi_database_based_on_gbif, " > temp_file && mv temp_file ", ncbi_database_based_on_gbif))
+     
+  }
+  
 }
