@@ -20,18 +20,23 @@
 #' }
 #' @import readr
 #' @export
-refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequence_length, pattern = "UNVERIFIED") {
+refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequence_length, pattern = "") {
   
   # Filter sequences based on the given pattern
-  filter_command <- paste0(
-    "wsl awk",
-    " -v pattern='" , pattern, "'",
-    " -v output_file='" , database_cleaned, "'",
-    " '/^>/ { if ($0 !~ pattern) { if (header) { print header; print sequence } header = $0; sequence = \"\" } next } { sequence = sequence $0 } END { if (header) { print header; print sequence } }' ",
-    raw_database,
-    ">",
-    database_cleaned
-  )
+  if (nzchar(pattern)) {
+    filter_command <- paste0(
+      "wsl awk",
+      " -v pattern='" , pattern, "'",
+      " -v output_file='" , database_cleaned, "'",
+      " '/^>/ { if ($0 !~ pattern) { if (header) { print header; print sequence } header = $0; sequence = \"\" } next } { sequence = sequence $0 } END { if (header) { print header; print sequence } }' ",
+      raw_database,
+      ">",
+      database_cleaned
+    )
+  } else {
+    filter_command <- paste0("wsl cp ", raw_database, " ", database_cleaned)
+  }
+  
   system(filter_command)
   
   # Remove sequences below the minimum length

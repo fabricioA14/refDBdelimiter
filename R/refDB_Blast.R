@@ -162,6 +162,16 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                 " -num_threads ", num_threads, 
                 optional_params))
   
+  system(paste0("wsl blastn -query ", paste0(linux_path, query), 
+                " -task ", task, 
+                " -db ", paste0(linux_path, Database_File), 
+                " -out ", out, 
+                " -outfmt 6",  # Set output format to tabular
+                " -max_target_seqs 50", 
+                " -perc_identity 95", 
+                " -qcov_hsp_perc 95", 
+                " -num_threads 6"))
+  
   system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
   
   csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)
@@ -284,6 +294,9 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
     # Combine the dataframes using rbind
     all_taxa <- data.frame(rbind(taxa_names_df, taxa_names_df_rem))
     
+    #library(tidyr)
+    #library(stringr)
+    
     identified_otus <- all_taxa %>% 
       pivot_wider(names_from = rank, values_from = name)
     
@@ -309,7 +322,13 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   
   colnames(identified_otus) <- c("qseqid", "seqid", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
   
-  cl.max <- cbind(identified_otus[, 1:9], cl.max_[, 3])
+  cl.max_subset <- cl.max_[, c(1, 3)]
+  
+  cl.max_ordered <- cl.max_subset[match(identified_otus$qseqid, cl.max_subset$qseqid), ]
+  
+  cl.max <- cbind(identified_otus[, 1:9], cl.max_ordered$pident)
+  
+  colnames(cl.max)[ncol(cl.max)] <- "pident"
   
   ########## File = Samples ##########
   
