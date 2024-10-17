@@ -281,7 +281,7 @@ ui <- fluidPage(
                            actionButton("run_time", "Run Temporal Filters", class = "btn-primary")
                   ),
                   tabPanel("Interactive Map",
-                           checkboxInput("database_condition", "Are you building a Metabarcoding Database?", TRUE), # Adicionado aqui
+                           checkboxInput("database_condition", "Are you building a Metabarcoding Database?", TRUE),
                            textInput("shp_path", "Enter Shapefile Path", value = ""),
                            actionButton("load_shp", "Load Shapefile", class = "btn-primary"),
                            actionButton("run_edit_map", "Generate Map", class = "btn-primary"),
@@ -966,8 +966,10 @@ server <- function(input, output, session) {
         decimalLatitude = st_coordinates(sf_data)[, 2]    # Extract latitude
       )
     
-    visualization <- visualization %>%
-      distinct(taxa, .keep_all = TRUE)
+    if (input$database_condition == TRUE) {
+      visualization <- visualization %>%
+        distinct(taxa, .keep_all = TRUE)
+    }
     
     # Define a color palette for the species
     qual_palette <- colorFactor(palette = brewer.pal(9, "Set1"), domain = visualization$taxa)
@@ -991,7 +993,7 @@ server <- function(input, output, session) {
         color = ~qual_palette(taxa),
         label = ~taxa,
         popup = ~paste("Taxa:", taxa, "<br>Genus:", genus, "<br>Family:", family, "<br>Order:", order, "<br>Class:", class, "<br>Phylum:", phylum, "<br>Level:", toTitleCase(identification_level)),
-        layerId = ~paste0(taxa)
+        layerId = ~paste0(taxa, "_", decimalLongitude, "_", decimalLatitude)
       ) %>%
       addLegend(
         position = "bottomright",
@@ -1232,6 +1234,11 @@ function(el, x) {
       
       # Write collapsed string to file
       writeLines(collapsed_string, "gbif_taxa_dataset.txt")
+      
+      if ("scientificName_updated" %in% colnames(sf_data)) {
+      sf_data <- sf_data %>% dplyr::rename(taxa = scientificName_updated)
+      }
+      
       # Save all data from the visualization object
       if (!is.null(input$formats_edit) && length(input$formats_edit) > 0) {
         refDB_SaveOccurrenceData(sf_data, input$save_path_selected, formats = input$formats_edit)
@@ -1252,6 +1259,10 @@ function(el, x) {
     selected_sf <- refDB_ExtractData(updatedFeatures)
     
     all_search_results_inside <- list()
+    
+    if ("scientificName_updated" %in% colnames(sf_data)) {
+    sf_data <- sf_data %>% dplyr::rename(taxa = scientificName_updated)
+    }
     
     for (i in 1:nrow(selected_sf)) {
       name_to_search <- rownames(selected_sf[i, ])
