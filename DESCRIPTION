@@ -10,6 +10,13 @@ Authors@R: c(
         comment = c(ORCID = "0000-0002-5242-6340")
     ),
     person(
+        given = "Renato",
+        family = "R. Moreira Oliveira",
+        role = "aut",
+        email = "Renato.Oliveira8@itv.org",
+        comment = c(ORCID = "0000-0002-0111-8209")
+    ),
+    person(
         given = "Jonathan",
         family = "Ready",
         role = "aut",
@@ -28,6 +35,7 @@ Imports:
     DT,
     doParallel,
     ggplot2,
+    rentrez,
     RColorBrewer,
     shiny,
     leaflet,
