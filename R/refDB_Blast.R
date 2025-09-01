@@ -157,12 +157,18 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   )
   
   # blastn
-  system(paste0("wsl blastn -query ", paste0(linux_path, query), " -task ", task, " -db ", paste0(linux_path, Database_File), 
-                " -out ", out, " -max_target_seqs ", max_target_seqs, 
-                " -perc_identity ", perc_identity, 
-                " -qcov_hsp_perc ", qcov_hsp_perc, 
-                " -num_threads ", num_threads, 
-                optional_params))
+query_path <- file.path(linux_path, query)
+db_path    <- file.path(linux_path, Database_File)
+
+system(paste0("wsl blastn -query ", query_path, 
+              " -task ", task, 
+              " -db ", db_path,
+              " -out ", out, 
+              " -max_target_seqs ", max_target_seqs, 
+              " -perc_identity ", perc_identity, 
+              " -qcov_hsp_perc ", qcov_hsp_perc, 
+              " -num_threads ", num_threads, 
+              optional_params))
   
   #system(paste0("wsl blastn -query ", paste0(linux_path, query), 
   #              " -task ", task, 
