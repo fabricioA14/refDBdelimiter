@@ -43,6 +43,7 @@ Imports:
     plotly,
     tibble,
     rgbif,
+    rstudioapi,
     concaveman,
     rnaturalearth,
     rnaturalearthdata,
