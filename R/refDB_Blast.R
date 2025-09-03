@@ -97,18 +97,20 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                         outfmt = "6", show_gis = NULL, num_descriptions = NULL, num_alignments = NULL, 
                         line_length = NULL, html = NULL, sorthits = NULL, sorthsps = NULL, 
                         mt_mode = NULL, remote = NULL) {
+
+  # Convert Windows directory to WSL/Linux-compatible paths
+  linux_dir <- gsub("C:/", "/mnt/c/", Directory)
+  wsl_dir <- gsub("C:\\\\", "/mnt/c/", gsub("\\\\", "/", Directory))
+  windows_dir <- gsub("\\\\", "/", Directory)
   
-  linux_path <- gsub("C:/", "/mnt/c/", Directory)
-  
-  # Optional Parameters
+  # Build optional BLAST parameters (only include non-NULL values)
   optional_params <- ""
   add_param <- function(param, value) {
-    if (!is.null(value)) {
-      return(paste0(" -", param, " ", value))
-    }
+    if (!is.null(value)) return(paste0(" -", param, " ", value))
     return("")
   }
   
+  # Collect all optional parameters
   optional_params <- paste0(optional_params, 
                             add_param("penalty", penalty), 
                             add_param("reward", reward), 
@@ -156,146 +158,117 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                             add_param("remote", remote)
   )
   
-  # blastn
-query_path <- file.path(linux_path, query)
-db_path    <- file.path(linux_path, Database_File)
-
-system(paste0("wsl blastn -query ", query_path, 
-              " -task ", task, 
-              " -db ", db_path,
-              " -out ", out, 
-              " -max_target_seqs ", max_target_seqs, 
-              " -perc_identity ", perc_identity, 
-              " -qcov_hsp_perc ", qcov_hsp_perc, 
-              " -num_threads ", num_threads, 
-              optional_params))
+  # Define query and database paths for WSL
+  query_file <- file.path(linux_dir, query)
+  database_file <- file.path(linux_dir, Database_File)
   
-  #system(paste0("wsl blastn -query ", paste0(linux_path, query), 
-  #              " -task ", task, 
-  #              " -db ", paste0(linux_path, Database_File), 
-  #              " -out ", out, 
-  #              " -outfmt 6",  # Set output format to tabular
-  #              " -max_target_seqs 50", 
-  #              " -perc_identity 95", 
-  #              " -qcov_hsp_perc 95", 
-  #              " -num_threads 6"))
+  # Run BLASTn inside WSL
+  system(paste0("wsl blastn -query ", query_file, 
+                " -task ", task, 
+                " -db ", database_file,
+                " -out ", out, 
+                " -max_target_seqs ", max_target_seqs, 
+                " -perc_identity ", perc_identity, 
+                " -qcov_hsp_perc ", qcov_hsp_perc, 
+                " -num_threads ", num_threads, 
+                optional_params))
   
+  # Clean OTU table by removing '#' characters
   system(paste0("wsl tr -d '#' < ", otu_table, " > temp_raw_database && mv temp_raw_database ", otu_table))
   
-  csv1 <- read.table(paste0(Directory, out), sep = "", header = FALSE)
+  # Load BLAST results, OTU table, and query sequences
+  blast_results <- read.table(file.path(windows_dir, out), sep = "", header = FALSE)
+  sample_table <- read.table(file.path(windows_dir, otu_table), sep = "\t", header = TRUE)
+  query_sequences <- Biostrings::readDNAStringSet(file.path(windows_dir, query))
   
-  Samples <- read.table(paste0(Directory, otu_table), sep = "\t", header = TRUE)
+  # Assign column names to BLAST output
+  colnames(blast_results) <- c("qseqid", "seqid", "pident", "length", "mismatch", "gapopen", 
+                               "qstart", "qend", "sstart", "send", "evalue", "bitscore")
   
-  fasta_seq <- Biostrings::readDNAStringSet(paste0(Directory, query))
+  # Keep only the best hit (highest % identity) per query
+  best_hits <- blast_results %>% group_by(qseqid) %>% slice_max(pident, n = 1, with_ties = FALSE)
   
-  ########## Files = csv + ID taxa ##########
-  colnames(csv1) <- c("qseqid", "seqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send", "evalue", "bitscore")
-  
-  library(dplyr)
-  
-  # Separate only the max value of match per ZOTU
-  cl.max_ <- csv1 %>% group_by(qseqid) %>% slice_max(pident, n = 1, with_ties = FALSE)
-  
-  library(rentrez)
-  library(taxizedb)
-  
-  # Validação do NCBI
+  # Retrieve NCBI taxonomy
   db_download_ncbi()
   src <- src_ncbi()
   
   get_taxid <- function(accession) {
-  summary <- entrez_summary(db = "nuccore", id = accession)
-  return(summary$taxid)}
-  
-  accession_numbers <- cl.max_$seqid
-
-  # Aplicar a função a cada accession number
-  taxids <- sapply(accession_numbers, get_taxid)
-  
-  #accession_numbers <- taxizedb::classification(accession_numbers, db = "ncbi")
-  
-  #taxids <- sapply(accession_numbers[1:5], get_taxid)
-  #taxids
-  taxids <- taxizedb::classification(taxids, db = "ncbi")
-  taxids_ <- taxids
-  
-  taxa_names <- taxids
-  
-  accession_id <- data.frame(Acession = accession_numbers, tax_ids = names(taxa_names))
-  
-  # To test if we have a dataframe after extract each ID
-  is_dataframe <- function(obj) {
-    inherits(obj, "data.frame")
+    summary <- entrez_summary(db = "nuccore", id = accession)
+    return(summary$taxid)
   }
   
-  #If a df is not generated, we create an empty one (to standardize the "main" output object)
-  for (i in seq_along(taxa_names)) {
-    if (!is_dataframe(taxa_names[[i]])) {
-      taxa_names[[i]] <- data.frame(name = NA, rank = NA, id = NA)
+  accession_numbers <- best_hits$seqid
+  taxid_list <- sapply(accession_numbers, get_taxid)
+  tax_classification <- taxizedb::classification(taxid_list, db = "ncbi")
+  
+  # Map accession numbers to tax IDs
+  accession_tax_map <- data.frame(Acession = accession_numbers, tax_ids = names(tax_classification))
+  
+  # Ensure consistent data frame structure for missing results
+  is_dataframe <- function(obj) inherits(obj, "data.frame")
+  for (i in seq_along(tax_classification)) {
+    if (!is_dataframe(tax_classification[[i]])) {
+      tax_classification[[i]] <- data.frame(name = NA, rank = NA, id = NA)
     }
   }
   
-  # Here we unify all dfs. Each one has a ASV/OTU name associated (for further validations)
-  taxa_names_df <- do.call(rbind, lapply(names(taxa_names), function(name) {
-    df <- taxa_names[[name]]
+  # Combine all taxonomic classifications into a single data frame
+  taxa_long <- do.call(rbind, lapply(names(tax_classification), function(name) {
+    df <- tax_classification[[name]]
     df$taxid <- name
     return(df)
   }))
   
-  taxa_names_df <- taxa_names_df[, c("taxid", names(taxa_names_df)[1:(ncol(taxa_names_df) - 1)])]
-  taxa_names_df <- taxa_names_df[, -ncol(taxa_names_df)]
+  taxa_long <- taxa_long[, c("taxid", names(taxa_long)[1:(ncol(taxa_long) - 1)])]
+  taxa_long <- taxa_long[, -ncol(taxa_long)]
   
-  taxa_names_df <- taxa_names_df %>%
+  # Keep only standard taxonomic ranks
+  taxa_long <- taxa_long %>%
     filter(rank %in% c("kingdom", "phylum", "class", "order", "family", "genus", "species", NA)) %>%
     group_by(taxid) %>%
     distinct()
   
-  identified_otus <- taxa_names_df %>%
-  tidyr::pivot_wider(names_from = rank, values_from = name)
-
-  csv1_merged <- cl.max_ %>%
-  left_join(accession_id, by = c("seqid" = "Acession"), relationship ="many-to-many") %>%
-  relocate(tax_ids, .after = 2) %>%  
-  distinct()           
+  # Convert taxonomy to wide format
+  taxonomy_wide <- taxa_long %>%
+    tidyr::pivot_wider(names_from = rank, values_from = name)
   
-  #write.table(csv1_merged, file = paste0("identified_blast.txt"), sep = "\t", row.names = F, col.names = T)
+  # Merge BLAST hits with taxonomy
+  merged_hits <- best_hits %>%
+    left_join(accession_tax_map, by = c("seqid" = "Acession"), relationship ="many-to-many") %>%
+    relocate(tax_ids, .after = 2) %>%  
+    distinct() %>%
+    left_join(
+      taxonomy_wide %>% select(taxid, 2:8),  
+      by = c("tax_ids" = "taxid")             
+    ) %>% relocate(names(taxonomy_wide)[2:8], .after = 3) %>% 
+    select(1:12) 
   
-# Passo 1: Fazer o left_join mantendo a estrutura de csv1_merged
-csv1_merged <- csv1_merged %>%
-  left_join(
-    identified_otus %>% select(taxid, 2:8),  
-    by = c("tax_ids" = "taxid")             
-  ) %>% relocate(names(identified_otus)[2:8], .after = 3) %>% 
-  select(1:12) 
+  # Merge taxonomy with sample abundance table
+  colnames(sample_table)[1] <- "qseqid"
+  sample_table <- sample_table %>%
+    inner_join(merged_hits %>% distinct(qseqid), by = "qseqid") %>%
+    arrange(match(qseqid, merged_hits$qseqid)) %>%
+    left_join(merged_hits %>% select(qseqid, 2:12), by = "qseqid") %>% 
+    relocate(names(merged_hits)[2:12], .after = 1)
   
-  ########## File = Samples ##########
+  # Prepare raw sequences table
+  raw_sequences <- data.frame(
+    qseqid = names(query_sequences),
+    Fasta = as.character(query_sequences),
+    stringsAsFactors = FALSE
+  )
   
-  colnames(Samples)[1] <- "qseqid"
+  # Final merge: samples + taxonomy + sequences
+  final_blast <- merge(sample_table, raw_sequences, by = "qseqid")
+  final_blast <- as.data.frame(final_blast, stringsAsFactors = FALSE)
   
-  Samples <- Samples %>%
-  inner_join(csv1_merged %>% distinct(qseqid), by = "qseqid")
+  # Apply identity thresholds to filter species/genus assignments
+  final_blast$species <- ifelse(final_blast$pident >= Genus_Threshold & final_blast$pident < Specie_Threshold, "" ,final_blast$species)
+  final_blast$species <- ifelse(final_blast$pident >= Family_Threshold & final_blast$pident < Genus_Threshold, "" ,final_blast$species)
+  final_blast$genus <- ifelse(final_blast$pident >= Family_Threshold & final_blast$pident < Genus_Threshold, "" ,final_blast$genus)
   
-  #csv1_merged <- csv1_merged[order(match(csv1_merged$qseqid, Samples$qseqid)), ]
+  # Save final taxonomic assignment
+  write.table(final_blast, file = file.path(windows_dir, "taxonomic_assignment.txt"), sep = "\t", row.names = F, col.names = T)
   
-  Samples <- Samples[order(match(Samples$qseqid, csv1_merged$qseqid)), ]
-  
-  Samples <- Samples %>%
-  left_join(
-    csv1_merged %>% select(qseqid, 2:12),  
-    by = c("qseqid" = "qseqid")             
-  ) %>% 
-  relocate(names(csv1_merged)[2:12], .after = 1)
-  
-  raw_otus <- data.frame(
-  qseqid = names(fasta_seq),
-  Fasta = as.character(fasta_seq),
-  stringsAsFactors = FALSE)
-  
-  Blast <- merge(Samples, raw_otus, by = "qseqid")
-  
-  Blast <- as.data.frame(Blast, stringsAsFactors = FALSE)
-
-  write.table(Blast, file = paste0(Directory, "taxonomic_assignment.txt"), sep = "\t", row.names = F, col.names = T)
-    
   print("End of Run")
 }
