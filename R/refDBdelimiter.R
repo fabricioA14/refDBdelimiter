@@ -22,7 +22,7 @@
 #' @importFrom countrycode countrycode
 #' @importFrom data.table fread
 #' @export
-refDBdelimiter_ <- function(run_in_browser = FALSE) {
+refDBdelimiter <- function(run_in_browser = FALSE) {
   
   scrollable_legend_css <- "
 .info.legend {
