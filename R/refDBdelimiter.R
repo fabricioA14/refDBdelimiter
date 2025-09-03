@@ -1368,7 +1368,7 @@ function(el, x) {
     genus_flexibility <- input$genus_flexibility
     
     # Define intermediate parameters
-    database_cleaned <- "ncbiChordataToGbif.fasta"
+    #database_cleaned <- "ncbiChordataToGbif.fasta"
     
     # Call the function refDB_FormatNcbiDatabase
     refDB_FormatNcbiDatabase(raw_database, database_cleaned, min_sequence_length, pattern)
@@ -1602,7 +1602,7 @@ observeEvent(
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    refDB_Blast_(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    refDB_Blast(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                 Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                 gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                 min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
