@@ -21,8 +21,9 @@
 #' @importFrom bdc bdc_coordinates_precision bdc_query_names_taxadb bdc_scientificName_empty bdc_coordinates_empty bdc_coordinates_outOfRange bdc_clean_names bdc_basisOfRecords_notStandard bdc_country_from_coordinates bdc_coordinates_country_inconsistent bdc_coordinates_from_locality bdc_summary_col bdc_filter_out_flags bdc_year_outOfRange
 #' @importFrom countrycode countrycode
 #' @importFrom data.table fread
+#' @importFrom rstudioapi selectDirectory
 #' @export
-refDBdelimiter <- function(run_in_browser = FALSE) {
+refDBdelimiter_ <- function(run_in_browser = FALSE) {
   
   scrollable_legend_css <- "
 .info.legend {
@@ -305,15 +306,15 @@ ui <- fluidPage(
                   ),
                   tabPanel("Make Database",
                            checkboxInput("genus_flexibility", "Genus Flexibility:", TRUE),
-                           textInput("raw_database", "Raw Database", value = "ncbiChordata.fasta"),
+                           textInput("raw_database", "Raw Database", value = "ncbi_dataset.fasta"),
                            textInput("gbif_database", "GBIF Database", value = ""),
-                           textInput("final_output_database", "Output Database", value = "Chordata_Ncbi_Gbif.fasta"),
+                           textInput("final_output_database", "Output Database", value = "ncbi_gbif_db.fasta"),
                            checkboxInput("pattern_unverified", "Exclude UNVERIFIED Sequences", value = TRUE),
                            numericInput("min_sequence_length", "Minimum Sequence Length", value = 100, min = 1),
                            checkboxInput("parse_seqids", HTML('Parse SeqIDs <a id="parse_seqids_link" href="#">(parse_seqids)</a>'), TRUE),
                            selectInput("database_type", HTML('Database Type <a id="database_type_link" href="#">(dbtype)</a>'), choices = c("nucl", "prot"), selected = "nucl"),
                            textInput("title", HTML('Title <a id="title_link" href="#">(title)</a>'), value = "local_database"),
-                           textInput("out", HTML('Database Name <a id="out_link" href="#">(out)</a>'), value = ""),
+                           textInput("out", HTML('Database Name <a id="out_link" href="#">(out)</a>'), value = "local_database"),
                            checkboxInput("hash_index", HTML('Hash Index <a id="hash_index_link" href="#">(hash_index)</a>'), FALSE),
                            textInput("mask_data", HTML('Mask Data <a id="mask_data_link" href="#">(mask_data)</a>'), value = ""),
                            textInput("mask_id", HTML('Mask ID <a id="mask_id_link" href="#">(mask_id)</a>'), value = ""),
@@ -321,25 +322,26 @@ ui <- fluidPage(
                            checkboxInput("gi_mask", HTML('GI Mask <a id="gi_mask_link" href="#">(gi_mask)</a>'), FALSE),
                            textInput("gi_mask_name", HTML('GI Mask Name <a id="gi_mask_name_link" href="#">(gi_mask_name)</a>'), value = ""),
                            textInput("max_file_sz", HTML('Max File Size <a id="max_file_sz_link" href="#">(max_file_sz)</a>'), value = ""),
-                           textInput("logfile", HTML('Log File <a id="logfile_link" href="#">(logfile)</a>'), value = ""),
+                           textInput("logfile", HTML('Log File <a id="logfile_link" href="#">(logfile)</a>'), value = "logfile.log"),
                            textInput("taxid", HTML('TaxID <a id="taxid_link" href="#">(taxid)</a>'), value = ""),
                            textInput("taxid_map", HTML('TaxID Map File <a id="taxid_map_link" href="#">(taxid_map)</a>'), value = ""),
                            actionButton("run_make_database", "Run Make Database", class = "btn-primary")
                   ),
                   tabPanel("Taxonomic Assignment",
                            textInput("directory", "Directory", value = ""),
+                           actionButton("browse_dir", "Browse Directory", style = "margin-bottom: 0px;"),
                            textInput("database_file", HTML('Database File <a id="database_file_link" href="#">(db)</a>:'), value = ""),
                            textInput("query", HTML('Query File <a id="query_link" href="#">(query)</a>:'), value = "otus.fasta"),
-                           textInput("otu_table", "OTU Table", value = ""),   
-                           textInput("task", HTML('Task <a id="task_link" href="#">(task)</a>:'), value = "megablast"),          
+                           textInput("otu_table", "OTU Table", value = "otu_table.txt"),   
+                           #textInput("task", HTML('Task <a id="task_link" href="#">(task)</a>:'), value = "megablast"),          
                            textInput("out", HTML('Output File <a id="out_link" href="#">(out)</a>:'), value = "blast.txt"),    
                            numericInput("max_target_seqs", HTML('Max Target Seqs <a id="max_target_seqs_link" href="#">(max_target_seqs)</a>:'), value = 50, min = 1),
                            sliderInput("perc_identity", HTML('Percentage Identity <a id="perc_identity_link" href="#">(perc_identity)</a>:'), min = 0, max = 100, value = 95, step = 0.5),
                            sliderInput("qcov_hsp_perc", HTML('Query Coverage HSP Percentage <a id="qcov_hsp_perc_link" href="#">(qcov_hsp_perc)</a>:'), min = 0, max = 100, value = 95, step = 0.5),
-                           sliderInput("specie_threshold", "Specie Threshold:", min = 0, max = 100, value = 99, step = 0.5),
+                           sliderInput("specie_threshold", "Species Threshold:", min = 0, max = 100, value = 99, step = 0.5),
                            sliderInput("genus_threshold", "Genus Threshold:", min = 0, max = 100, value = 97, step = 0.5),
                            sliderInput("family_threshold", "Family Threshold:", min = 0, max = 100, value = 95, step = 0.5),
-                           numericInput("num_threads", HTML('Number of Threads <a id="num_threads_link" href="#">(num_threads)</a>:'), value = 6, min = 1),
+                           numericInput("num_threads", HTML('Number of Threads <a id="num_threads_link" href="#">(num_threads)</a>:'), value = 4, min = 1),
                            numericInput("penalty", HTML('Penalty <a id="penalty_link" href="#">(penalty)</a>:'), value = NA, min = -100, max = 0, step = 1), 
                            numericInput("reward", HTML('Reward <a id="reward_link" href="#">(reward)</a>:'), value = NA, min = 0, max = 100, step = 1),   
                            numericInput("evalue", HTML('E-value <a id="evalue_link" href="#">(evalue)</a>:'), value = NA, min = 0),                      
@@ -374,7 +376,7 @@ ui <- fluidPage(
                            textInput("query_loc", HTML('Query Loc <a id="query_loc_link" href="#">(query_loc)</a>:'), value = ""),                              
                            textInput("strand", HTML('Strand <a id="strand_link" href="#">(strand)</a>:'), value = ""),                                   
                            numericInput("parse_deflines", HTML('Parse Deflines <a id="parse_deflines_link" href="#">(parse_deflines)</a>:'), value = NA),                
-                           numericInput("outfmt", "Output Format", value = 6),                           
+                           #numericInput("outfmt", "Output Format", value = 6),                           
                            numericInput("show_gis", HTML('Show GIS <a id="show_gis_link" href="#">(show_gis)</a>:'), value = NA),                            
                            numericInput("num_descriptions", HTML('Num Descriptions <a id="num_descriptions_link" href="#">(num_descriptions)</a>:'), value = NA, min = 1),    
                            numericInput("num_alignments", HTML('Num Alignments <a id="num_alignments_link" href="#">(num_alignments)</a>:'), value = NA, min = 1),       
@@ -425,7 +427,7 @@ ui <- fluidPage(
                      leafletOutput("edit_map")
                  )
         ),
-        tabPanel("GBIF Submission",  # Add this tab
+        tabPanel("GBIF Submission", 
                  tabsetPanel(
                    tabPanel("Otu Table",
                             div(class = "output-tab",
@@ -1451,20 +1453,110 @@ function(el, x) {
   })
   
   #Taxonomic Assignment
+  
+  # To browse the directory
+  observeEvent(input$browse_dir, {
+  dir <- rstudioapi::selectDirectory()
+  if(!is.na(dir)) {
+    updateTextInput(session, "directory", value = dir)
+  }
+  })
+  
+# To update the Family, Genus, and Species sliders reactively
+rv <- reactiveValues(prev_f = NULL, prev_g = NULL, prev_s = NULL, busy = FALSE)
+
+# Initialize previous values (only once at startup)
+observe({
+  if (is.null(rv$prev_f)) {
+    rv$prev_f <- input$family_threshold
+    rv$prev_g <- input$genus_threshold
+    rv$prev_s <- input$specie_threshold
+  }
+})
+
+# Observe any change in the three sliders
+observeEvent(
+  list(input$family_threshold, input$genus_threshold, input$specie_threshold),
+  ignoreInit = TRUE,
+  {
+    # Prevent infinite loops while updating
+    if (rv$busy) return()
+    rv$busy <- TRUE
+
+    # Current slider values
+    f <- input$family_threshold
+    g <- input$genus_threshold
+    s <- input$specie_threshold
+
+    # Start with the assumption that new values = current values
+    new_f <- f; new_g <- g; new_s <- s
+
+    # Detect which slider the user moved (compare with previous values)
+    if (!is.null(rv$prev_s) && s != rv$prev_s) {
+      # User moved Species slider
+      if (s < g) {
+        new_g <- s            # pull Genus down
+        if (new_f > new_g) new_f <- new_g  # pull Family down if needed
+      }
+      # If s > g, no adjustment required
+    } else if (!is.null(rv$prev_g) && g != rv$prev_g) {
+      # User moved Genus slider
+      if (g < f) {
+        new_f <- g            # pull Family down
+      }
+      if (g > s) {
+        new_s <- g            # push Species up if Genus > Species
+      }
+    } else if (!is.null(rv$prev_f) && f != rv$prev_f) {
+      # User moved Family slider
+      if (f > g) {
+        new_g <- f            # push Genus up if Family > Genus
+        if (new_g > s) new_s <- new_g  # push Species up if needed
+      }
+    }
+
+    # Ensure values stay within [0, 100]
+    new_f <- max(0, min(100, new_f))
+    new_g <- max(0, min(100, new_g))
+    new_s <- max(0, min(100, new_s))
+
+    # Update sliders only if values have changed
+    if (!identical(new_f, f)) {
+      updateSliderInput(session, "family_threshold", value = new_f)
+    }
+    if (!identical(new_g, g)) {
+      updateSliderInput(session, "genus_threshold", value = new_g)
+    }
+    if (!identical(new_s, s)) {
+      updateSliderInput(session, "specie_threshold", value = new_s)
+    }
+
+    # Save current values as "previous" for the next change detection
+    rv$prev_f <- new_f
+    rv$prev_g <- new_g
+    rv$prev_s <- new_s
+
+    rv$busy <- FALSE
+  }
+)
+  
   observeEvent(input$run_blast, {
     Directory <- input$directory
     Database_File <- input$database_file
     query <- input$query
     otu_table <- input$otu_table
-    task <- input$task
+    task <- "megablast"
     out <- input$out
     max_target_seqs <- input$max_target_seqs
     perc_identity <- input$perc_identity
     qcov_hsp_perc <- input$qcov_hsp_perc
     num_threads <- input$num_threads
-    Specie_Threshold <- input$specie_threshold
-    Genus_Threshold <- input$genus_threshold
     Family_Threshold <- input$family_threshold
+    Genus_Threshold <- max(input$genus_threshold, Family_Threshold)
+    Specie_Threshold <- max(input$specie_threshold, Genus_Threshold)
+    #Specie_Threshold <- input$specie_threshold
+    #Genus_Threshold <- input$genus_threshold
+    #Family_Threshold <- input$family_threshold
     penalty <- if (is.na(input$penalty)) NULL else input$penalty
     reward <- if (is.na(input$reward)) NULL else input$reward
     evalue <- if (is.na(input$evalue)) NULL else input$evalue
@@ -1499,7 +1591,8 @@ function(el, x) {
     query_loc <- if (input$query_loc == "") NULL else input$query_loc
     strand <- if (input$strand == "") NULL else input$strand
     parse_deflines <- if (is.na(input$parse_deflines)) NULL else input$parse_deflines
-    outfmt <- input$outfmt
+    #outfmt <- input$outfmt
+    outfmt <- 6 
     show_gis <- if (is.na(input$show_gis)) NULL else input$show_gis
     num_descriptions <- if (is.na(input$num_descriptions)) NULL else input$num_descriptions
     num_alignments <- if (is.na(input$num_alignments)) NULL else input$num_alignments
@@ -1510,7 +1603,7 @@ function(el, x) {
     mt_mode <- if (is.na(input$mt_mode)) NULL else input$mt_mode
     remote <- if (is.na(input$remote)) NULL else input$remote
     
-    refDB_Blast(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
+    refDB_Blast_(Directory, Database_File, otu_table, query, task, out, max_target_seqs, perc_identity, qcov_hsp_perc, num_threads, 
                 Specie_Threshold, Genus_Threshold, Family_Threshold, penalty, reward, evalue, word_size, gapopen, 
                 gapextend, max_hsps, xdrop_ungap, xdrop_gap, xdrop_gap_final, searchsp, sum_stats, no_greedy, 
                 min_raw_gapped_score, template_type, template_length, dust, filtering_db, window_masker_taxid, 
@@ -1647,7 +1740,7 @@ function(el, x) {
       taxonomic_assignment <- read.delim(tax_file$datapath)
     }
     
-    # Separar a tabela taxonômica
+    # Separate tax table
     tax <- taxonomic_assignment %>% 
       select(qseqid, Kingdom, Phylum, Class, Order, Family, Genus, Species)
     
@@ -1705,7 +1798,7 @@ function(el, x) {
       }
     }
     
-    # Remove columns not selected
+    # Remove not selected columns
     all_cols <- c("ID", "Event Date", new_cols)
     current_data <- current_data[, all_cols, drop = FALSE]
     
@@ -1850,7 +1943,7 @@ function(el, x) {
   # Save the Default Values table
   observeEvent(input$save_default_values, {
     saved_data <- values()
-    # Salve os dados em um arquivo CSV chamado "DefaultValues.csv"
+    # Save dataset in "DefaultValues.csv"
     write.csv(saved_data, file = "DefaultValues.csv",sep = "\t", row.names = FALSE)
     # Perform save operation (e.g., write to a file or database)
     showNotification("Table saved successfully.")
