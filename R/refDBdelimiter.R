@@ -21,7 +21,6 @@
 #' @importFrom bdc bdc_coordinates_precision bdc_query_names_taxadb bdc_scientificName_empty bdc_coordinates_empty bdc_coordinates_outOfRange bdc_clean_names bdc_basisOfRecords_notStandard bdc_country_from_coordinates bdc_coordinates_country_inconsistent bdc_coordinates_from_locality bdc_summary_col bdc_filter_out_flags bdc_year_outOfRange
 #' @importFrom countrycode countrycode
 #' @importFrom data.table fread
-#' @importFrom rstudioapi selectDirectory
 #' @export
 refDBdelimiter_ <- function(run_in_browser = FALSE) {
   
