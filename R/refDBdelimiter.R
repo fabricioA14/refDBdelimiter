@@ -1368,7 +1368,7 @@ function(el, x) {
     genus_flexibility <- input$genus_flexibility
     
     # Define intermediate parameters
-    #database_cleaned <- "ncbiChordataToGbif.fasta"
+    database_cleaned <- "ncbiToGbif.fasta"
     
     # Call the function refDB_FormatNcbiDatabase
     refDB_FormatNcbiDatabase(raw_database, database_cleaned, min_sequence_length, pattern)
