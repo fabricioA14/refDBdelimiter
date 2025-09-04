@@ -72,8 +72,8 @@
 #' }
 #' @import readr
 #' @import Biostrings readDNAStringSet
-#' @importFrom dplyr group_by top_n rename distinct filter mutate select ungroup case_when left_join
-#' @importFrom plyr match_df
+#' @importFrom dplyr group_by top_n rename distinct filter mutate select ungroup case_when left_join slice_max
+#' @importFrom plyr match_df 
 #' @importFrom readr read_table
 #' @importFrom stats complete.cases
 #' @importFrom stringr str_split
@@ -186,7 +186,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
                                "qstart", "qend", "sstart", "send", "evalue", "bitscore")
   
   # Keep only the best hit (highest % identity) per query
-  best_hits <- blast_results %>% group_by(qseqid) %>% slice_max(pident, n = 1, with_ties = FALSE)
+  best_hits <- blast_results %>% group_by(qseqid) %>% dplyr::slice_max(pident, n = 1, with_ties = FALSE)
   
   # Retrieve NCBI taxonomy
   db_download_ncbi()
