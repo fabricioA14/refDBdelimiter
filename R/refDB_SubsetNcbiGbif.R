@@ -21,10 +21,7 @@
 #' @import readr
 #' @importFrom utils read.table write.table
 #' @export
-refDB_SubsetNcbiGbif_ <- function(gbif_database,
-                                  cleaned_ncbi_database,
-                                  ncbi_database_based_on_gbif,
-                                  genus_flexibility) {
+refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility) {
   
   # Always create an empty output file to start
   file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
