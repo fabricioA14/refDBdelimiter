@@ -1380,11 +1380,11 @@ function(el, x) {
     }
     
     # Conditionally call the appropriate function
-    if (gbif_database != "") {
+    #if (gbif_database != "") {
       refDB_SubsetNcbiGbif(gbif_database, database_cleaned, final_output_database, genus_flexibility)
-    } else {
-      refDB_ncbiToMakeblastdb(database_cleaned, final_output_database)
-    }
+    #} else {
+    #  refDB_ncbiToMakeblastdb(database_cleaned, final_output_database)
+    #}
     
     if (file.exists(final_output_database)) {
       showNotification("NCBI Database created successfully.", type = "message")
