@@ -78,8 +78,11 @@ refDB_FormatNcbiDatabase <- function(raw_database, database_cleaned, min_sequenc
     "} { print }' ", database_cleaned, " > temp_database_cleaned && mv temp_database_cleaned ", database_cleaned
   ))
   
-  system(paste0("sed -i '/^>/ s/[[:space:]]/_/g' ", database_cleaned))
+  # Replace spaces with pipes | in headers
+  system(paste0("sed -i '/^>/ s/[[:space:]]/-/g' ", database_cleaned))
   
-  system(paste0("sed -i '/^>.*_$/s/_$//' ", database_cleaned))
+  # Remove trailing pipe if exists
+  #system(paste0("sed -i '/^>.*|$/s/-$//' ", database_cleaned))
+  system(paste0("sed -i '/^>/ s/-$//' ", database_cleaned))
   
 }
