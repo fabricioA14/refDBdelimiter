@@ -21,7 +21,10 @@
 #' @import readr
 #' @importFrom utils read.table write.table
 #' @export
-refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility) {
+refDB_SubsetNcbiGbif_ <- function(gbif_database,
+                                  cleaned_ncbi_database,
+                                  ncbi_database_based_on_gbif,
+                                  genus_flexibility) {
   
   # Always create an empty output file to start
   file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
@@ -87,10 +90,15 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
 } else {
   # GENUS_FLEXIBILITY FALSE
   # Convert underscores to dashes in GBIF dataset at the start
-  temp_gbif <- tempfile(fileext = ".txt")
-  system(paste0("wsl sed 's/_/-/g' ", gbif_database, " > ", temp_gbif))
-  gbif_database <- temp_gbif
-
+  #temp_gbif <- tempfile(fileext = ".txt")
+  #system(paste0("wsl sed 's/_/-/g' ", gbif_database, " > ", temp_gbif))
+  #gbif_database <- temp_gbif
+  
+  formatted_gbif <- "FormattedGbifSpecies.txt"
+  system(paste0("wsl sed 's/_/-/g' ", gbif_database, " > ", formatted_gbif))
+  gbif_database <- formatted_gbif
+  on.exit(unlink(formatted_gbif), add = TRUE)
+  
   search_code <- paste0("
     wsl awk -v RS='>' -v ORS='' '
       NR==FNR {
