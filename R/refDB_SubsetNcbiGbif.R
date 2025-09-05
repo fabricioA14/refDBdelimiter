@@ -21,11 +21,11 @@
 #' @import readr
 #' @importFrom utils read.table write.table
 #' @export
-refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_database_based_on_gbif, genus_flexibility) {
+refDB_SubsetNcbiGbif <- function(gbif_database, database_cleaned, final_output_database, genus_flexibility) {
   
   # Always create an empty output file to start
-  file.create(ncbi_database_based_on_gbif, showWarnings = FALSE)
-  fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
+  file.create(final_output_database, showWarnings = FALSE)
+  fileConn <- file(final_output_database, open = "wt")
   close(fileConn)
   
   # Helper: write SelectedSequences.txt from FASTA
@@ -72,7 +72,7 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
                 getline
                 print
               }
-            }' ", cleaned_ncbi_database, " >> ", ncbi_database_based_on_gbif, "
+            }' ", database_cleaned, " >> ", final_output_database, "
         }
         
         chunk_size=1000
@@ -126,25 +126,25 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
           }
         }
       }
-    ' ", gbif_database, " ", cleaned_ncbi_database, " > ", ncbi_database_based_on_gbif
+    ' ", gbif_database, " ", database_cleaned, " > ", final_output_database
   )
   system(search_code)}
     
     # Truncate FASTA headers at first '-' (only accession)
-    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", final_output_database))
     
     # Write SelectedSequences.txt with '|' separator
-    write_selected_sequences(ncbi_database_based_on_gbif)
+    write_selected_sequences(final_output_database)
     
   } else {
     # No GBIF provided: use cleaned NCBI directly
-    file.copy(cleaned_ncbi_database, ncbi_database_based_on_gbif, overwrite = TRUE)
+    file.copy(database_cleaned, final_output_database, overwrite = TRUE)
     
     # Truncate FASTA headers at first '-' (only accession)
-    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", final_output_database))
     
     # Write SelectedSequences.txt with '|' separator
-    write_selected_sequences(ncbi_database_based_on_gbif)
+    write_selected_sequences(final_output_database)
   }
   
 }
