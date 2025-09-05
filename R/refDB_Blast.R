@@ -72,7 +72,7 @@
 #' }
 #' @import readr
 #' @import Biostrings readDNAStringSet
-#' @importFrom dplyr group_by top_n rename distinct filter mutate select ungroup case_when left_join slice_max
+#' @importFrom dplyr group_by top_n rename distinct filter mutate select ungroup case_when left_join slice_max relocate
 #' @importFrom plyr match_df 
 #' @importFrom readr read_table
 #' @importFrom stats complete.cases
@@ -235,12 +235,12 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   # Merge BLAST hits with taxonomy
   merged_hits <- best_hits %>%
     left_join(accession_tax_map, by = c("seqid" = "Acession"), relationship ="many-to-many") %>%
-    relocate(tax_ids, .after = 2) %>%  
+    dplyr::relocate(tax_ids, .after = 2) %>%  
     distinct() %>%
     left_join(
       taxonomy_wide %>% select(taxid, 2:8),  
       by = c("tax_ids" = "taxid")             
-    ) %>% relocate(names(taxonomy_wide)[2:8], .after = 3) %>% 
+    ) %>% dplyr::relocate(names(taxonomy_wide)[2:8], .after = 3) %>% 
     select(1:12) 
   
   # Merge taxonomy with sample abundance table
@@ -249,7 +249,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
     inner_join(merged_hits %>% distinct(qseqid), by = "qseqid") %>%
     arrange(match(qseqid, merged_hits$qseqid)) %>%
     left_join(merged_hits %>% select(qseqid, 2:12), by = "qseqid") %>% 
-    relocate(names(merged_hits)[2:12], .after = 1)
+    dplyr::relocate(names(merged_hits)[2:12], .after = 1)
   
   # Prepare raw sequences table
   raw_sequences <- data.frame(
