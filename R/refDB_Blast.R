@@ -246,7 +246,7 @@ refDB_Blast <- function(Directory, Database_File, otu_table = "otu_table.txt", q
   # Merge taxonomy with sample abundance table
   colnames(sample_table)[1] <- "qseqid"
   sample_table <- sample_table %>%
-    inner_join(merged_hits %>% distinct(qseqid), by = "qseqid") %>%
+    dplyr::inner_join(merged_hits %>% distinct(qseqid), by = "qseqid") %>%
     dplyr::arrange(match(qseqid, merged_hits$qseqid)) %>%
     left_join(merged_hits %>% select(qseqid, 2:12), by = "qseqid") %>% 
     dplyr::relocate(names(merged_hits)[2:12], .after = 1)
