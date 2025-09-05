@@ -28,128 +28,118 @@ refDB_SubsetNcbiGbif <- function(gbif_database, cleaned_ncbi_database, ncbi_data
   fileConn <- file(ncbi_database_based_on_gbif, open = "wt")
   close(fileConn)
   
-  # If gbif_database exists and is provided
-  if (!is.null(gbif_database) && file.exists(gbif_database)) {
-    
-    if (genus_flexibility == TRUE) {
-      # -------------- (1) GENUS_FLEXIBILITY == TRUE CODE --------------
-      system(paste0("
-        wsl names=$(<", gbif_database ,")
-
-        # Function to split names into chunks
-        split_names_into_chunks() {
-            local chunk_size=$1
-            local num_chunks=$(( (${#names} + $chunk_size - 1) / $chunk_size ))
-            local chunks=()
-            for (( i = 0; i < $num_chunks; i++ )); do
-                local start=$(( $i * $chunk_size ))
-                chunks+=( \"$(echo \"${names:$start:$chunk_size}\")\" )
-            done
-            echo \"${chunks[@]}\"
-        }
-
-        # Function to replace spaces with underscores
-        replace_spaces_with_underscores() {
-            sed 's/ /_/g'
-        }
-
-        # Function to search and append sequences with exact matching
-        search_and_append() {
-            local chunk=\"$1\"
-            awk -v pattern=\"$chunk\" '
-                BEGIN {
-                    split(pattern, pat, \"|\")
-                }
-                /^>/ {
-                    header = substr($0, 2)  # Remove >
-                    split(header, parts, \"_\")
-                    if (parts[2] == pat[1] || parts[1] == pat[1]) {
-                        print \">\" parts[1]   # <-- apenas accession
-                        getline
-                        print
-                    }
-                }' ", cleaned_ncbi_database ," | replace_spaces_with_underscores >> ", ncbi_database_based_on_gbif ,"
-        }
-
-        # Split names into chunks of 1000
-        chunk_size=1000
-        IFS='|' read -ra chunks <<< \"$(split_names_into_chunks $chunk_size)\"
-
-        # Search and append sequences for each chunk
-        for chunk in \"${chunks[@]}\"
-        do
-            search_and_append \"$chunk\"
-        done
-      "))
-
-      # Create a file with  selected accession numbers
-      excluded_parts_file <- "SelectedSequences.txt"
-      system(paste0("wsl sed -n 's/^>\\([^ ]*\\).*/\\1/p' ",
-                    ncbi_database_based_on_gbif, 
-                    " | paste -sd '|' - | sed 's/$/|/' > ", 
-                    excluded_parts_file))
-
-    } else {
-      # -------------- (2) GENUS_FLEXIBILITY == FALSE CODE --------------
-      system(paste0("
-        wsl names=$(<", gbif_database ,")
-
-        split_names_into_chunks() {
-            local chunk_size=$1
-            local num_chunks=$(( (${#names} + $chunk_size - 1) / $chunk_size ))
-            local chunks=()
-            for (( i = 0; i < $num_chunks; i++ )); do
-                local start=$(( $i * $chunk_size ))
-                chunks+=( \"$(echo \"${names:$start:$chunk_size}\")\" )
-            done
-            echo \"${chunks[@]}\"
-        }
-
-        search_and_append() {
-            local chunk=\"$1\"
-            awk '/^>/{f=0} 
-                 /^>.*'\"$chunk\"'/{f=1} 
-                 f' ", cleaned_ncbi_database ," >> ", ncbi_database_based_on_gbif ,"
-        }
-
-        modified_names=$(echo \"$names\" | sed 's/[[:space:]]/_/g')
-
-        chunk_size=1000
-        IFS='|' read -ra chunks <<< \"$(split_names_into_chunks $chunk_size)\"
-
-        for chunk in \"${chunks[@]}\"
-        do
-            search_and_append \"$chunk\"
-        done
-      "))
-
-      # Only accession in the SelectedSequences
-      excluded_parts_file <- "SelectedSequences.txt"
-      system(paste0("wsl sed -n 's/^>\\([^_]*\\).*/\\1/p' ",
-                    ncbi_database_based_on_gbif, 
-                    " | paste -sd '|' - | sed 's/$/|/' > ", 
-                    excluded_parts_file))
-
-      # Only accession in the headers
-      system(paste0("wsl sed -i 's/^>\\([^_]*\\)_.*/>\\1/' ", ncbi_database_based_on_gbif))
-    }
-
-  } else {
-    # -------------- (3) NO gbif_database PROVIDED --------------
-    excluded_parts_file <- "SelectedSequences.txt"
-
-    # Extract and save accession numbers
-    system(paste0("wsl sed -n 's/^>\\([^ ]*\\).*/\\1/p' ",
-              cleaned_ncbi_database, 
-              " | paste -sd '|' - | sed 's/$/|/' > ", 
-              excluded_parts_file))
-    
-    # Accession number in the headers
+  # Helper: write SelectedSequences.txt from FASTA
+  write_selected_sequences <- function(fasta_file, output_file = "SelectedSequences.txt") {
     system(paste0(
-      "wsl sed 's/^>\\([^_]*\\)_.*/>\\1/' ",
-      cleaned_ncbi_database,
-      " > ",
-      ncbi_database_based_on_gbif
+      "wsl sed -n 's/^>\\(.*\\)/\\1/p' ",
+      fasta_file,
+      " | paste -sd '|' - | sed 's/$/|/' > ",
+      output_file
     ))
   }
+  
+  if (!is.null(gbif_database) && file.exists(gbif_database)) {
+    
+    # Read GBIF names in chunks
+    chunk_code <- "
+      split_names_into_chunks() {
+        local chunk_size=$1
+        local num_chunks=$(( (${#names} + $chunk_size - 1) / $chunk_size ))
+        local chunks=()
+        for (( i = 0; i < $num_chunks; i++ )); do
+          local start=$(( $i * $chunk_size ))
+          chunks+=( \"$(echo \"${names:$start:$chunk_size}\")\" )
+        done
+        echo \"${chunks[@]}\"
+      }
+    "
+    
+    if (genus_flexibility) {
+      # GENUS_FLEXIBILITY TRUE
+      search_code <- paste0("
+        wsl names=$(<", gbif_database, ")
+        ", chunk_code, "
+        
+        search_and_append() {
+          local chunk=\"$1\"
+          awk -v pattern=\"$chunk\" '
+            BEGIN { split(pattern, pat, \"|\") }
+            /^>/ {
+              header = substr($0, 2)
+              split(header, parts, \"-\")      # <- Use '-' as separator
+              if (parts[2] == pat[1] || parts[1] == pat[1]) {
+                print \">\" parts[1]          # Only accession after selection
+                getline
+                print
+              }
+            }' ", cleaned_ncbi_database, " >> ", ncbi_database_based_on_gbif, "
+        }
+        
+        chunk_size=1000
+        IFS='|' read -ra chunks <<< \"$(split_names_into_chunks $chunk_size)\"
+        for chunk in \"${chunks[@]}\"
+        do
+          search_and_append \"$chunk\"
+        done
+      ")
+      system(search_code)
+      
+} else {
+  # GENUS_FLEXIBILITY FALSE
+  # Convert underscores to dashes in GBIF dataset at the start
+  temp_gbif <- tempfile(fileext = ".txt")
+  system(paste0("wsl sed 's/_/-/g' ", gbif_database, " > ", temp_gbif))
+  gbif_database <- temp_gbif
+
+  search_code <- paste0("
+    wsl awk -v RS='>' -v ORS='' '
+      NR==FNR {
+        # Read GBIF species list (split by |)
+        n = split($0, gbif_species, \"|\")
+        next
+      }
+      NR>FNR {
+        split($0, lines, \"\\n\")
+        header = lines[1]
+        sequence = \"\"
+        for (i=2; i<=length(lines); i++) sequence = sequence lines[i]
+        gsub(/\\n/, \"\", sequence)
+        
+        # Extract genus-species after first dash
+        dash = index(header, \"-\")
+        if (dash > 0) {
+          header_species = substr(header, dash+1)
+        } else {
+          header_species = header
+        }
+
+        # Compare with all GBIF species
+        for (i=1; i<=n; i++) {
+          if (header_species == gbif_species[i]) {
+            print \">\" header \"\\n\" sequence \"\\n\"
+            break
+          }
+        }
+      }
+    ' ", gbif_database, " ", cleaned_ncbi_database, " > ", ncbi_database_based_on_gbif
+  )
+  system(search_code)}
+    
+    # Truncate FASTA headers at first '-' (only accession)
+    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+    
+    # Write SelectedSequences.txt with '|' separator
+    write_selected_sequences(ncbi_database_based_on_gbif)
+    
+  } else {
+    # No GBIF provided: use cleaned NCBI directly
+    file.copy(cleaned_ncbi_database, ncbi_database_based_on_gbif, overwrite = TRUE)
+    
+    # Truncate FASTA headers at first '-' (only accession)
+    system(paste0("wsl sed -i 's/^>\\([^\\-]*\\).*/>\\1/' ", ncbi_database_based_on_gbif))
+    
+    # Write SelectedSequences.txt with '|' separator
+    write_selected_sequences(ncbi_database_based_on_gbif)
+  }
+  
 }
