@@ -71,7 +71,7 @@ For more detailed instructions, refer to the [Microsoft](https://docs.microsoft.
      BiocManager::install("Biostrings")
      ```
 
-5. Install `rnaturalearthhires` package from GitHub:
+5. Install `rnaturalearthhires` and `bdc` packages from GitHub:
 
     ```r
     remotes::install_github("ropensci/rnaturalearthhires")
@@ -589,4 +589,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 </p>
+
 
