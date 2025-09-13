@@ -76,6 +76,8 @@ For more detailed instructions, refer to the [Microsoft](https://docs.microsoft.
     ```r
     remotes::install_github("ropensci/rnaturalearthhires")
     library(rnaturalearthhires)
+    remotes::install_github("brunobrr/bdc")
+    library(bdc)
     ```
 
 6. To install the `refDBdelimiter` package, you can use the following commands in R:
@@ -87,7 +89,10 @@ For more detailed instructions, refer to the [Microsoft](https://docs.microsoft.
     }
 
     # Install refDBdelimiter from GitHub
+    options(future.globals.maxSize = 8000 * 1024^2) # Adjust based on your dataset size (8GB example)
+    Sys.setenv(GITHUB_PAT = "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") # Temporary test key - Latest updates
     devtools::install_github("fabricioA14/refDBdelimiter")
+    library(refDBdelimiter)
     ```
 
 ## Usage
@@ -584,3 +589,4 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 </p>
+
